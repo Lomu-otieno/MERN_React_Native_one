@@ -1,0 +1,25 @@
+{
+    "name": "backend",
+    "version": "1.0.0",
+    "main": "index.js",
+    "scripts": {
+        "dev": "nodemon source/index.js"
+    },
+    "keywords": ["React Native", "MERN stack", "MongoDB", "mobile app", "full-stack"],
+    "author": "Lomu",
+    "type": "module",
+    "license": "ISC",
+    "description": "A dating app server",
+    "dependencies": {
+        "bcryptjs": "^3.0.2",
+        "cloudinary": "^2.7.0",
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.0",
+        "express": "^5.1.0",
+        "jsonwebtoken": "^9.0.2",
+        "mongoose": "^8.16.3"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.10"
+    }
+}
