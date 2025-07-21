@@ -11,6 +11,6 @@ const connectDB = async() => {
         process(1)
     }
 
-}
+};
 
 export default connectDB;

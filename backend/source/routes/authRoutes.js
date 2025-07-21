@@ -1,5 +1,12 @@
-import express from "express"
+import express from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import generateToken from "../lib/generateToken.js"
+import loginLimiter from "../middleware/rateLimiter.js";
+import protect from "../middleware/authMiddleware.js";
+import crypto from "crypto";
+import sendEmail from "../lib/sendEmail.js";
 
 const router = express.Router();
 
@@ -7,41 +14,179 @@ router.post("/register", async(req, res) => {
     try {
         const { email, username, password } = req.body;
 
-        if (!username || !email || password) {
+        if (!username || !email || !password) {
             return res.status(400).json({ message: "All fields are required" });
         }
+
         if (password.length < 6) {
-            return res.status(400).json({ message: "Password Should be at least 6 characters long" });
-
+            return res.status(400).json({ message: "Password should be at least 6 characters long" });
         }
+
         if (username.length < 3) {
-            return res.status(400).json({ message: "Username should be at least 3 characters long" })
-
+            return res.status(400).json({ message: "Username should be at least 3 characters long" });
         }
-        const existingUser = await User.findOne({ username })
-        if (existingUser) {
-            return res.status(400).json({ message: "Username already exists" })
-        };
-        const existingEmail = await User.findOne({ email })
-        if (existingUser) {
-            return res.status(400).json({ message: "Email already exists" })
-        };
-        // getting  avator
 
-        const profileImage = ``
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.status(400).json({ message: "Username already exists" });
+        }
+
+        const existingEmail = await User.findOne({ email });
+        if (existingEmail) {
+            return res.status(400).json({ message: "Email already exists" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const profileImage = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+
         const user = new User({
             email,
             username,
-            password,
-            profileImage
-        })
-    } catch (error) {
+            password: hashedPassword,
+            profileImage,
+        });
 
+        await user.save();
+
+        const token = generateToken(user._id);
+        res.status(201).json({
+            message: "Register successful",
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                profileImage: user.profileImage,
+                createdAt: user.createdAt,
+            },
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 });
 
-router.post("/login", async(req, res) => {
-    res.send("Login")
+router.post("/login", loginLimiter, async(req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        // 1. Validate input
+        if (!username || !password) {
+            return res.status(400).json({ message: "Username and password are required" });
+        }
+
+        // 2. Find user by username
+        const user = await User.findOne({ username });
+        if (!user) {
+            return res.status(400).json({ message: "Invalid credentials" });
+        }
+
+        // 3. Compare passwords
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: "Invalid credentials" });
+        }
+
+        // 4. Create JWT token
+        const token = jwt.sign({ id: user._id, username: user.username },
+            process.env.JWT_SECRET, { expiresIn: "1h" }
+        );
+
+        // 5. Respond
+        res.status(200).json({
+            message: "Login successful",
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                profileImage: user.profileImage,
+            }
+        });
+        // Example of a protected route:
+        router.get("/me", protect, (req, res) => {
+            res.json(req.user); // This will return the authenticated user data
+        });
+    } catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/forgot-password", async(req, res) => {
+    const { email } = req.body;
+
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: "Email not found" });
+        }
+
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+        user.resetPasswordToken = hashedToken;
+        user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        await user.save();
+
+        const resetLink = `http://localhost:3001/api/auth/reset-password/${resetToken}`;
+
+        const message = `
+        <h2>Password Reset Request</h2>
+        <p>Hello ${user.username},</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetLink}" target="_blank">${resetLink}</a>
+        <p>This link will expire in 10 minutes.</p>
+      `;
+
+        await sendEmail(email, "Password Reset Request", message);
+
+        res.status(200).json({ message: "Reset link sent to email" });
+    } catch (error) {
+        console.error("Error sending email:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/reset-password/:token", async(req, res) => {
+    const { password } = req.body;
+    const { token } = req.params;
+
+    try {
+        const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+        const user = await User.findOne({
+            resetPasswordToken: hashedToken,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: "Invalid or expired token" });
+        }
+
+        // Validate password
+        if (!password || password.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters" });
+        }
+
+        user.password = await bcrypt.hash(password, 10);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+
+        await user.save();
+
+        res.status(200).json({ message: "Password reset successful" });
+    } catch (error) {
+        console.error("Reset password error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.get("/profile", protect, async(req, res) => {
+    res.json({
+        message: "Protected route accessed",
+        user: req.user, // Available because protect added it
+    });
 });
 
 
