@@ -103,50 +103,14 @@ router.post("/login", loginLimiter, async(req, res) => {
                 profileImage: user.profileImage,
             }
         });
-        // Example of a protected route:
-        router.get("/me", protect, (req, res) => {
-            res.json(req.user); // This will return the authenticated user data
-        });
     } catch (error) {
         console.error("Login Error:", error);
         res.status(500).json({ message: "Server error" });
     }
+    // Example of a protected route:
 });
 
-router.post("/forgot-password", async(req, res) => {
-    const { email } = req.body;
 
-    try {
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: "Email not found" });
-        }
-
-        const resetToken = crypto.randomBytes(32).toString("hex");
-        const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-
-        user.resetPasswordToken = hashedToken;
-        user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-        await user.save();
-
-        const resetLink = `http://localhost:3001/api/auth/reset-password/${resetToken}`;
-
-        const message = `
-        <h2>Password Reset Request</h2>
-        <p>Hello ${user.username},</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetLink}" target="_blank">${resetLink}</a>
-        <p>This link will expire in 10 minutes.</p>
-      `;
-
-        await sendEmail(email, "Password Reset Request", message);
-
-        res.status(200).json({ message: "Reset link sent to email" });
-    } catch (error) {
-        console.error("Error sending email:", error);
-        res.status(500).json({ message: "Server error" });
-    }
-});
 
 router.post("/reset-password/:token", async(req, res) => {
     const { password } = req.body;
