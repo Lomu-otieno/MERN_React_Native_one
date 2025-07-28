@@ -1,4 +1,3 @@
-// source/routes/passwordRoutes.js
 import express from "express";
 import crypto from "crypto";
 import User from "../models/User.js";

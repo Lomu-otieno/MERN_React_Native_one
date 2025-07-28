@@ -1,12 +1,39 @@
 import express from "express"
 import protect from "../middleware/protect.js";
 import User from "../models/User.js";
+import { storage } from "../lib/cloudinary.js";
+import { cloudinary } from "../lib/cloudinary.js";
+import multer from "multer";
 
+const upload = multer({ storage });
 const user_router = express.Router();
 
+user_router.post("/upload-profile", protect, upload.single("image"), async(req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: "User not found" });
 
-user_router.get("/view-profile", protect, (req, res) => {
-    res.json(req.user); // This will return the authenticated user data
+        // Delete old image from Cloudinary (optional)
+        if (user.profileImage) {
+            const segments = user.profileImage.split("/");
+            const fileWithExtension = segments.pop(); // e.g., photo.jpg
+            const publicId = fileWithExtension.split(".")[0]; // e.g., photo
+
+            await cloudinary.uploader.destroy(`dating_app_photos/${publicId}`);
+        }
+
+        // Save new image URL
+        user.profileImage = req.file.path; // Cloudinary gives the URL here
+        await user.save();
+
+        res.status(200).json({
+            message: "Profile image updated successfully",
+            url: user.profileImage,
+        });
+    } catch (err) {
+        console.error("Upload error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 user_router.put("/update-profile", protect, async(req, res) => {
@@ -41,6 +68,24 @@ user_router.put("/update-profile", protect, async(req, res) => {
     }
 });
 
+user_router.get("/view-profile", protect, (req, res) => {
+    res.json(req.user); // This will return the authenticated user data
+});
+
+user_router.post("/upload-photos", protect, upload.array("images", 5), async(req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        const urls = req.files.map(file => file.path);
+
+        user.photos.push(...urls);
+        await user.save();
+
+        res.status(200).json({ message: "Photos uploaded", urls });
+    } catch (err) {
+        console.error("Upload error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 
 user_router.get("/explore", protect, async(req, res) => {
     try {
@@ -79,6 +124,7 @@ user_router.get("/explore", protect, async(req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 });
+
 user_router.post("/like/:targetUserId", protect, async(req, res) => {
     const currentUserId = req.user._id;
     const targetUserId = req.params.targetUserId;
