@@ -23,7 +23,7 @@ app.use(limiter);
 
 app.use(compression());
 
-app.get("/", (req, res) => {
+app.get("/healthz", (req, res) => {
     res.send("API is running...");
 });
 
