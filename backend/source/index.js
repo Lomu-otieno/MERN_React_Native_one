@@ -27,6 +27,10 @@ app.get("/healthz", (req, res) => {
     res.send("API is running...");
 });
 
+app.get("/", (req, res) => {
+    res.status(200).json({ message: "Server is alive" });
+});
+
 app.use(cors({
     origin: process.env.FRONTEND_URL, // Frontend URL (e.g., http://localhost:3000)
     credentials: true // Allow cookies/auth headers

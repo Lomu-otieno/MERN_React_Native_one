@@ -2,7 +2,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 dotenv.config(); // Make sure environment variables are loaded
 
-const SERVER_URL = process.env.LIVE;
+const SERVER_URL = process.env.LIVE || "https://lomu-dating-backend.onrender.com";
 
 if (!SERVER_URL) {
     console.error("SERVER_URL is not defined in .env");
