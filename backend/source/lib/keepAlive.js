@@ -2,7 +2,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 dotenv.config(); // Make sure environment variables are loaded
 
-const SERVER_URL = process.env.SERVER_URI;
+const SERVER_URL = process.env.LIVE;
 
 if (!SERVER_URL) {
     console.error("SERVER_URL is not defined in .env");
