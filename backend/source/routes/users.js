@@ -46,17 +46,30 @@ user_router.put("/update-profile", protect, async(req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // Update fields only if they are provided
+        // Gender and DOB can only be set once
+        if (gender !== undefined) {
+            if (user.gender) {
+                return res.status(400).json({ message: "Gender can only be set once" });
+            }
+            user.gender = gender;
+        }
+
+        if (dateOfBirth !== undefined) {
+            if (user.dateOfBirth) {
+                return res.status(400).json({ message: "Date of birth can only be set once" });
+            }
+            user.dateOfBirth = new Date(dateOfBirth);
+        }
+
+        // Allow updating these any time
         if (bio !== undefined) user.bio = bio;
-        if (gender !== undefined) user.gender = gender;
-        if (dateOfBirth !== undefined) user.dateOfBirth = new Date(dateOfBirth);
         if (interests !== undefined) user.interests = interests;
         if (photos !== undefined) user.photos = photos;
         if (location !== undefined) user.location = location;
 
         await user.save();
 
-        const { password, ...userData } = user.toObject(); // Remove password from response
+        const { password, ...userData } = user.toObject();
 
         res.status(200).json({
             message: "Profile updated successfully",
@@ -67,6 +80,7 @@ user_router.put("/update-profile", protect, async(req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 });
+
 
 user_router.get("/view-profile", protect, (req, res) => {
     res.json(req.user); // This will return the authenticated user data
