@@ -4,16 +4,53 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import LoginScreen from "../Screens/LoginScreen";
 import RegisterScreen from "../Screens/RegisterScreen";
-// import ExploreScreen from "./Screens/ExploreScreen"; // placeholder
+import ExploreScreen from "../Screens/ExploreScreen";
+import ForgotPasswordScreen from "../Screens/ForgetPasswordScreen";
+import AuthLoadingScreen from "../Screens/AuthLoadingScreen";
+import ResetPasswordScreen from "../Screens/ResetPasswordScreen";
+import TabNavigator from "./TabNavigator";
 
 const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => (
   <NavigationContainer>
     <Stack.Navigator initialRouteName="Login">
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      {/* <Stack.Screen name="Explore" component={ExploreScreen} /> */}
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Register"
+        component={RegisterScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Explore"
+        component={ExploreScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AuthLoading"
+        component={AuthLoadingScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="Main"
+        component={TabNavigator}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   </NavigationContainer>
 );

@@ -39,7 +39,7 @@ const LoginScreen = () => {
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("user", JSON.stringify(user));
 
-    //   navigation.replace("Explore");
+      navigation.replace("Main");
     } catch (error) {
       console.error("Login error:", error.response?.data || error.message);
       Alert.alert(
