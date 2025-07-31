@@ -9,6 +9,8 @@ import ForgotPasswordScreen from "../Screens/ForgetPasswordScreen";
 import AuthLoadingScreen from "../Screens/AuthLoadingScreen";
 import ResetPasswordScreen from "../Screens/ResetPasswordScreen";
 import TabNavigator from "./TabNavigator";
+import UserMatch from "../Screens/UserMatch";
+import EditProfileScreen from "../Screens/EditProfileScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -49,6 +51,16 @@ const AppNavigator = () => (
       <Stack.Screen
         name="Main"
         component={TabNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="UserMatch"
+        component={UserMatch}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

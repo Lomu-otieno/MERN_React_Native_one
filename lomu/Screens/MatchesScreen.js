@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,38 +7,45 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
+  TouchableOpacity,
+  RefreshControl,
+  StatusBar,
+  Platform,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons, Feather } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
 const SERVER_URL = "https://lomu-dating-backend.onrender.com";
+const DEFAULT_IMAGE = "https://i.imgur.com/5WzFNgi.jpg";
 
 const MatchesScreen = () => {
+  const navigation = useNavigation();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchMatches = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
-
-      const res = await axios.get(`${SERVER_URL}/api/users/likes`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const res = await axios.get(`${SERVER_URL}/api/users/matches`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       setMatches(res.data || []);
-      console.log("Fetched matches:", res.data);
     } catch (error) {
-      console.error(
-        "Error fetching matches:",
-        error.response?.data || error.message
-      );
       Alert.alert("Error", "Failed to load matches.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchMatches();
+  }, []);
 
   useEffect(() => {
     fetchMatches();
@@ -46,83 +53,177 @@ const MatchesScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#E91E63" />
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#FF0050" />
       </View>
     );
   }
 
   if (matches.length === 0) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.emptyText}>No matches yet. Keep swiping!</Text>
+      <View style={[styles.container, styles.centeredEmpty]}>
+        <Ionicons name="heart-dislike" size={64} color="#333" />
+        <Text style={styles.emptyTitle}>No matches yet</Text>
+        <Text style={styles.emptySubtitle}>
+          Keep swiping to find your perfect match!
+        </Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <Ionicons name="refresh" size={20} color="#FF0050" />
+          <Text style={styles.refreshText}>Refresh</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  const renderItem = ({ item }) => (
-    <View style={styles.card}>
-      <Image source={{ uri: item.profileImage }} style={styles.image} />
-      <View style={styles.info}>
-        <Text style={styles.username}>{item.username}</Text>
-        <Text style={styles.email}>{item.email}</Text>
-      </View>
-    </View>
-  );
-
   return (
-    <FlatList
-      data={matches}
-      keyExtractor={(item) => item._id}
-      renderItem={renderItem}
-      contentContainerStyle={styles.list}
-    />
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <View style={styles.header}>
+        {/* <Text style={styles.headerTitle}>Your Matches</Text> */}
+        {/* <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
+          <Ionicons
+            name="refresh"
+            size={24}
+            color={refreshing ? "#666" : "#FF0050"}
+          />
+        </TouchableOpacity> */}
+      </View>
+
+      <FlatList
+        data={matches}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#FF0050"]}
+            tintColor="#FF0050"
+            progressBackgroundColor="#1A1A1A"
+          />
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={styles.matchCard}
+            onPress={() => navigation.navigate("UserMatch", { user: item })}
+          >
+            <Image
+              source={{ uri: item.profileImage || DEFAULT_IMAGE }}
+              style={styles.avatar}
+            />
+            <View style={styles.info}>
+              <Text style={styles.username}>@{item.username}</Text>
+              <Text style={styles.lastSeen}>Active recently</Text>
+            </View>
+            <Feather name="message-circle" size={24} color="#666" />
+          </TouchableOpacity>
+        )}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent
+      />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  list: {
-    padding: 16,
-    backgroundColor: "#fff",
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
   },
-  card: {
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingTop: Platform.OS === "ios" ? 50 : 30,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#333",
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "white",
+  },
+  listContainer: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  matchCard: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 16,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 4,
+    backgroundColor: "#1A1A1A",
+    padding: 16,
+    borderRadius: 12,
+    marginVertical: 6,
   },
-  image: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#333",
     marginRight: 16,
+    borderWidth: 2,
+    borderColor: "#FF0050",
   },
   info: {
     flex: 1,
   },
   username: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "white",
+    marginBottom: 4,
   },
-  email: {
+  lastSeen: {
     fontSize: 14,
     color: "#666",
   },
   centered: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  emptyText: {
-    fontSize: 16,
-    color: "#888",
+  centeredEmpty: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "white",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#FF0050",
+  },
+  refreshText: {
+    color: "#FF0050",
+    fontWeight: "500",
+    marginLeft: 8,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: "#333",
+    marginLeft: 72,
   },
 });
 
