@@ -222,4 +222,18 @@ user_router.post("/pass/:targetUserId", protect, async (req, res) => {
   }
 });
 
+user_router.get("/matches", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate(
+      "matches",
+      "-password"
+    );
+
+    res.status(200).json(user.matches);
+  } catch (error) {
+    console.error("Fetch matches error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default user_router;

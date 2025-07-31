@@ -21,13 +21,14 @@ const MatchesScreen = () => {
     try {
       const token = await AsyncStorage.getItem("token");
 
-      const res = await axios.get(`${SERVER_URL}/api/users/matches`, {
+      const res = await axios.get(`${SERVER_URL}/api/users/likes`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
       setMatches(res.data || []);
+      console.log("Fetched matches:", res.data);
     } catch (error) {
       console.error(
         "Error fetching matches:",
