@@ -18,6 +18,7 @@ import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 
 const SERVER_URL = "https://lomu-dating-backend.onrender.com";
 
@@ -27,6 +28,8 @@ const ProfileScreen = () => {
   const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
+  const [images, setImages] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const fetchUser = async () => {
     try {
@@ -36,13 +39,136 @@ const ProfileScreen = () => {
       });
       setUser(res.data);
       setLikesCount(res.data.likesCount || 0);
+      setImages(res.data.photos || []);
     } catch (error) {
       console.error("Error fetching profile:", error);
       Alert.alert("Error", "Failed to load profile.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const requestMediaPermission = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "Please enable photo library access in settings"
+      );
+    }
+  };
+
+  const pickImage = async (isProfilePhoto = false) => {
+    try {
+      if (images.length >= 5 && !isProfilePhoto) {
+        Alert.alert("Limit Reached", "You can only upload up to 5 photos.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: isProfilePhoto ? [1, 1] : [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        if (isProfilePhoto) {
+          await uploadProfileImage(result.assets[0].uri);
+        } else {
+          await uploadPhoto(result.assets[0].uri);
+        }
+      }
+    } catch (error) {
+      console.error("Image picker error:", error);
+      Alert.alert("Error", "Failed to pick image");
+    }
+  };
+
+  const uploadProfileImage = async (uri) => {
+    try {
+      setUploading(true);
+      const token = await AsyncStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("image", {
+        uri,
+        name: "profile.jpg",
+        type: "image/jpeg",
+      });
+
+      const res = await axios.post(
+        `${SERVER_URL}/api/users/upload-profile`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      setUser({ ...user, profileImage: res.data.profileImage });
+      Alert.alert("Success", "Profile photo updated!");
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert("Error", "Failed to upload profile photo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const uploadPhoto = async (uri) => {
+    try {
+      setUploading(true);
+      const token = await AsyncStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("photo", {
+        uri,
+        name: `photo_${Date.now()}.jpg`,
+        type: "image/jpeg",
+      });
+
+      const res = await axios.post(
+        `${SERVER_URL}/api/users/upload-photo`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      setImages(res.data.photos);
+      Alert.alert("Success", "Photo uploaded successfully!");
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert("Error", "Failed to upload photo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const deletePhoto = async (index) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      await axios.delete(`${SERVER_URL}/api/users/delete-photo/${index}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const updatedImages = [...images];
+      updatedImages.splice(index, 1);
+      setImages(updatedImages);
+    } catch (error) {
+      console.error("Delete error:", error);
+      Alert.alert("Error", "Failed to delete photo");
+    }
+  };
+
+  useEffect(() => {
+    fetchUser();
+    requestMediaPermission();
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -57,10 +183,6 @@ const ProfileScreen = () => {
       Alert.alert("Error", "Failed to log out.");
     }
   };
-
-  useEffect(() => {
-    fetchUser();
-  }, []);
 
   if (loading) {
     return (
@@ -90,35 +212,36 @@ const ProfileScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={["#FF0050"]} // Android
-              tintColor="#FF0050" // iOS
-              progressBackgroundColor="#1A1A1A" // Background color of refresh indicator
+              colors={["#FF0050"]}
+              tintColor="#FF0050"
+              progressBackgroundColor="#1A1A1A"
             />
           }
         >
           {/* Profile Header */}
           <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity
+              style={styles.avatarContainer}
+              onPress={() => pickImage(true)}
+              disabled={uploading}
+            >
               <Image
                 source={{
-                  uri: user.profileImage,
-                  // "https://i.pinimg.com/1200x/c4/ae/63/c4ae63ed12845d4a0e6706bb036d9bd0.jpg",
+                  uri: user.profileImage || "https://i.imgur.com/5WzFNgi.jpg",
                 }}
                 style={styles.avatar}
               />
               <View style={styles.plusBadge}>
                 <Ionicons name="add" size={20} color="white" />
               </View>
-            </View>
+              {uploading && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator color="white" />
+                </View>
+              )}
+            </TouchableOpacity>
+
             <View style={styles.statsContainer}>
-              {/* <View style={styles.statItem}>
-                <Text style={styles.statNumber}>0</Text>
-                <Text style={styles.statLabel}>Following</Text>
-              </View> */}
-              {/* <View style={styles.statItem}>
-                <Text style={styles.statNumber}>0</Text>
-                <Text style={styles.statLabel}>Followers</Text>
-              </View> */}
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{likesCount}</Text>
                 <Text style={styles.statLabel}>Likes</Text>
@@ -137,30 +260,48 @@ const ProfileScreen = () => {
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => navigation.navigate("EditProfile")}
+            disabled={uploading}
           >
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </TouchableOpacity>
 
-          {/* Content Tabs */}
-          <View style={styles.tabsContainer}>
-            <TouchableOpacity style={styles.tabButtonActive}>
-              <Feather name="grid" size={24} color="white" />
-              <View style={styles.tabIndicatorActive} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.tabButton}>
-              <Feather name="heart" size={24} color="gray" />
-              <View style={styles.tabIndicator} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Content Placeholder */}
-          <View style={styles.contentPlaceholder}>
-            <Feather name="camera" size={48} color="#333" />
-            <Text style={styles.placeholderText}>Upload your first video</Text>
+          {/* Photos Section */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Your Photos</Text>
+            <View style={styles.photosContainer}>
+              {images.length > 0 ? (
+                images.map((img, idx) => (
+                  <View key={idx} style={styles.photoWrapper}>
+                    <Image source={{ uri: img }} style={styles.photo} />
+                    <TouchableOpacity
+                      style={styles.deletePhotoButton}
+                      onPress={() => deletePhoto(idx)}
+                    >
+                      <Ionicons name="close" size={20} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noPhotosText}>No photos yet</Text>
+              )}
+              {images.length < 5 && (
+                <TouchableOpacity
+                  style={styles.addPhotoButton}
+                  onPress={() => pickImage(false)}
+                  disabled={uploading}
+                >
+                  <Feather name="plus" size={24} color="#FF0050" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Logout Button */}
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            disabled={uploading}
+          >
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -220,6 +361,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#000",
   },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -272,46 +420,56 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
   },
-  tabsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
+  sectionContainer: {
     marginTop: 30,
-    borderTopWidth: 0.5,
-    borderTopColor: "#333",
-    paddingTop: 10,
+    paddingHorizontal: 20,
   },
-  tabButton: {
-    alignItems: "center",
-    paddingVertical: 10,
-    width: "50%",
+  sectionTitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 15,
   },
-  tabButtonActive: {
-    alignItems: "center",
-    paddingVertical: 10,
-    width: "50%",
+  photosContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
   },
-  tabIndicator: {
-    height: 2,
+  photoWrapper: {
+    width: "30%",
+    aspectRatio: 1,
+    margin: 5,
+    borderRadius: 10,
+  },
+  photo: {
     width: "100%",
-    backgroundColor: "transparent",
-    marginTop: 10,
+    height: "100%",
+    borderRadius: 10,
   },
-  tabIndicatorActive: {
-    height: 2,
-    width: "100%",
-    backgroundColor: "#FF0050",
-    marginTop: 10,
+  deletePhotoButton: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 10,
+    padding: 3,
   },
-  contentPlaceholder: {
-    flex: 1,
+  addPhotoButton: {
+    width: "30%",
+    aspectRatio: 1,
+    margin: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FF0050",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 50,
+    backgroundColor: "rgba(255,0,80,0.1)",
   },
-  placeholderText: {
-    color: "#333",
-    fontSize: 16,
-    marginTop: 15,
+  noPhotosText: {
+    color: "gray",
+    fontSize: 14,
+    alignSelf: "center",
+    marginVertical: 20,
   },
   logoutButton: {
     backgroundColor: "#FF0050",
