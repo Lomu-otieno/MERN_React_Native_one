@@ -101,9 +101,8 @@ const ProfileScreen = () => {
             <View style={styles.avatarContainer}>
               <Image
                 source={{
-                  uri:
-                    // user.profileImage ||
-                    "https://i.pinimg.com/1200x/c4/ae/63/c4ae63ed12845d4a0e6706bb036d9bd0.jpg",
+                  uri: user.profileImage,
+                  // "https://i.pinimg.com/1200x/c4/ae/63/c4ae63ed12845d4a0e6706bb036d9bd0.jpg",
                 }}
                 style={styles.avatar}
               />

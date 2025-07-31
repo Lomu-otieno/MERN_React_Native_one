@@ -105,6 +105,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
       dateOfBirth: user.dateOfBirth,
       interests: user.interests,
       location: user.location,
+      profileImage: user.profileImage,
       likes: user.likes,
       likesCount: user.likes.length,
     });
