@@ -26,6 +26,7 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
 
   const fetchUser = async () => {
     try {
@@ -119,7 +120,7 @@ const ProfileScreen = () => {
                 <Text style={styles.statLabel}>Followers</Text>
               </View> */}
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>0</Text>
+                <Text style={styles.statNumber}>{likesCount}</Text>
                 <Text style={styles.statLabel}>Likes</Text>
               </View>
             </View>

@@ -88,8 +88,22 @@ user_router.put("/update-profile", protect, async (req, res) => {
   }
 });
 
-user_router.get("/view-profile", protect, (req, res) => {
-  res.json(req.user); // This will return the authenticated user data
+user_router.get("/view-profile", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      ...user.toObject(),
+      likesCount: user.likes.length, // 👈 Add this
+    });
+  } catch (error) {
+    console.error("View profile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 user_router.post(
