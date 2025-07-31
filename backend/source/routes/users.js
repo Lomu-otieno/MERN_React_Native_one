@@ -101,6 +101,10 @@ user_router.get("/view-profile", protect, async (req, res) => {
       username: user.username,
       email: user.email,
       bio: user.bio,
+      gender: user.gender,
+      dateOfBirth: user.dateOfBirth,
+      interests: user.interests,
+      location: user.location,
       likes: user.likes,
       likesCount: user.likes.length,
     });
