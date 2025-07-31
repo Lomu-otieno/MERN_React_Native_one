@@ -35,6 +35,7 @@ const ProfileScreen = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUser(res.data);
+      setLikesCount(res.data.likesCount || 0);
     } catch (error) {
       console.error("Error fetching profile:", error);
       Alert.alert("Error", "Failed to load profile.");

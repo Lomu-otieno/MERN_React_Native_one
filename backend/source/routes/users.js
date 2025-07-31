@@ -97,8 +97,12 @@ user_router.get("/view-profile", protect, async (req, res) => {
     }
 
     res.status(200).json({
-      ...user.toObject(),
-      likesCount: user.likes.length, // 👈 Add this
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      bio: user.bio,
+      likes: user.likes,
+      likesCount: user.likes.length,
     });
   } catch (error) {
     console.error("View profile error:", error);
