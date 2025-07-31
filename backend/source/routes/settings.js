@@ -74,8 +74,21 @@ settings_router.put("/update-details", protect, async (req, res) => {
 });
 
 user_router.get("/view-profile", protect, async (req, res) => {
-  const user = await User.findById(req.user._id).select("-password");
-  res.json(user);
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      ...user.toObject(),
+      likesCount: user.likes.length, // 👈 Add this
+    });
+  } catch (error) {
+    console.error("View profile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 settings_router.post(
