@@ -119,16 +119,38 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.array("images", 5),
+  upload.array("images", 12),
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
-      const urls = req.files.map((file) => file.path);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const existingCount = user.photos.length;
+      const newUploads = req.files;
+
+      if (existingCount >= 12) {
+        return res
+          .status(400)
+          .json({
+            message: "You already have 12 photos. Delete some to upload more.",
+          });
+      }
+
+      const remainingSlots = 12 - existingCount;
+
+      const filesToSave = newUploads.slice(0, remainingSlots);
+      const urls = filesToSave.map((file) => file.path);
 
       user.photos.push(...urls);
       await user.save();
 
-      res.status(200).json({ message: "Photos uploaded", urls });
+      res.status(200).json({
+        message: `Uploaded ${urls.length} photo(s).`,
+        urls,
+      });
     } catch (err) {
       console.error("Upload error:", err);
       res.status(500).json({ message: "Server error" });
