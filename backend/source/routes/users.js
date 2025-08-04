@@ -130,41 +130,28 @@ user_router.post(
       const existingCount = user.photos.length;
       if (existingCount >= 12) {
         return res.status(400).json({
-          message: "Maximum 12 photos allowed. Delete some to upload more.",
+          message: "You already have 12 photos. Delete some to upload more.",
         });
       }
 
       const remainingSlots = 12 - existingCount;
-      const filesToProcess = req.files.slice(0, remainingSlots);
+      const filesToSave = req.files.slice(0, remainingSlots);
 
-      // Upload directly from memory buffer instead of saving to disk first
-      const uploadPromises = filesToProcess.map((file) => {
-        return new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: "dating_app_photos",
-              resource_type: "auto",
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
+      const uploadedUrls = [];
+      const uploadedPublicIds = [];
 
-          stream.end(file.buffer);
-        });
-      });
-
-      const results = await Promise.all(uploadPromises);
-      const uploadedUrls = results.map((r) => r.secure_url);
-      const uploadedPublicIds = results.map((r) => r.public_id);
+      for (const file of filesToSave) {
+        const result = await cloudinary.uploader.upload(file.path); // removed folder
+        uploadedUrls.push(result.secure_url);
+        uploadedPublicIds.push(result.public_id);
+      }
 
       user.photos.push(...uploadedUrls);
       user.photoPublicIds.push(...uploadedPublicIds);
       await user.save();
 
       res.status(200).json({
-        message: `Uploaded ${uploadedUrls.length} photo(s) successfully`,
+        message: `Uploaded ${uploadedUrls.length} photo(s).`,
         photos: uploadedUrls,
       });
     } catch (err) {
