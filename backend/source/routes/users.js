@@ -17,17 +17,26 @@ user_router.post(
       const user = await User.findById(req.user._id);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      // Delete old image from Cloudinary (optional)
+      // Delete previous profile image from Cloudinary if it exists
       if (user.profileImage) {
         const segments = user.profileImage.split("/");
-        const fileWithExtension = segments.pop(); // e.g., photo.jpg
-        const publicId = fileWithExtension.split(".")[0]; // e.g., photo
+        const fileWithExtension = segments.pop();
+        const publicId = fileWithExtension.split(".")[0];
 
-        await cloudinary.uploader.destroy(`dating_app_photos/${publicId}`);
+        try {
+          await cloudinary.uploader.destroy(publicId); // Removed folder path
+        } catch (err) {
+          console.warn("Failed to delete old profile image:", err.message);
+        }
       }
 
-      // Save new image URL
-      user.profileImage = req.file.path; // Cloudinary gives the URL here
+      // Upload new image to Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path);
+
+      // Save secure URL and optionally public_id
+      user.profileImage = result.secure_url;
+      user.profileImageId = result.public_id; // (Optional: if you want easier cleanup later)
+
       await user.save();
 
       res.status(200).json({
