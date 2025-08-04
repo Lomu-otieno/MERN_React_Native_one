@@ -119,80 +119,22 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.array("images", 12),
+  upload.array("images", 5),
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      const urls = req.files.map((file) => file.path);
 
-      const existingCount = user.photos.length;
-      if (existingCount >= 12) {
-        return res.status(400).json({
-          message: "You already have 12 photos. Delete some to upload more.",
-        });
-      }
-
-      const remainingSlots = 12 - existingCount;
-      const filesToSave = req.files.slice(0, remainingSlots);
-
-      const uploadedUrls = [];
-      const uploadedPublicIds = [];
-
-      for (const file of filesToSave) {
-        const result = await cloudinary.uploader.upload(file.path); // removed folder
-        uploadedUrls.push(result.secure_url);
-        uploadedPublicIds.push(result.public_id);
-      }
-
-      user.photos.push(...uploadedUrls);
-      user.photoPublicIds.push(...uploadedPublicIds);
+      user.photos.push(...urls);
       await user.save();
 
-      res.status(200).json({
-        message: `Uploaded ${uploadedUrls.length} photo(s).`,
-        photos: uploadedUrls,
-      });
+      res.status(200).json({ message: "Photos uploaded", urls });
     } catch (err) {
       console.error("Upload error:", err);
       res.status(500).json({ message: "Server error" });
     }
   }
 );
-
-user_router.delete("/delete-photo/:index", protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
-    const index = parseInt(req.params.index, 10);
-
-    if (!user || isNaN(index)) {
-      return res.status(400).json({ message: "Invalid user or index" });
-    }
-
-    if (index < 0 || index >= user.photos.length) {
-      return res.status(400).json({ message: "Index out of bounds" });
-    }
-
-    const removedPhotoUrl = user.photos.splice(index, 1)[0];
-    const removedPublicId = user.photoPublicIds.splice(index, 1)[0];
-
-    if (removedPublicId) {
-      await cloudinary.uploader.destroy(removedPublicId);
-    }
-
-    await user.save();
-
-    res.status(200).json({
-      message: "Photo deleted successfully",
-      removed: removedPhotoUrl,
-      remainingPhotos: user.photos,
-    });
-  } catch (error) {
-    console.error("Delete photo error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
 
 user_router.get("/explore", protect, async (req, res) => {
   try {
