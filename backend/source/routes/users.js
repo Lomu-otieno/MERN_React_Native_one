@@ -123,14 +123,11 @@ user_router.post(
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
-
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
 
       const existingCount = user.photos.length;
-      const newUploads = req.files;
-
       if (existingCount >= 12) {
         return res.status(400).json({
           message: "You already have 12 photos. Delete some to upload more.",
@@ -138,16 +135,28 @@ user_router.post(
       }
 
       const remainingSlots = 12 - existingCount;
+      const filesToSave = req.files.slice(0, remainingSlots);
 
-      const filesToSave = newUploads.slice(0, remainingSlots);
-      const urls = filesToSave.map((file) => file.path);
+      // Upload to Cloudinary
+      const uploadedPhotos = [];
+      for (const file of filesToSave) {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: "dating-app/photos", // Optional folder
+        });
 
-      user.photos.push(...urls);
+        uploadedPhotos.push({
+          url: result.secure_url,
+          public_id: result.public_id,
+        });
+      }
+
+      // Save to user
+      user.photos.push(...uploadedPhotos);
       await user.save();
 
       res.status(200).json({
-        message: `Uploaded ${urls.length} photo(s).`,
-        urls,
+        message: `Uploaded ${uploadedPhotos.length} photo(s).`,
+        photos: uploadedPhotos,
       });
     } catch (err) {
       console.error("Upload error:", err);
