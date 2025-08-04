@@ -132,11 +132,9 @@ user_router.post(
       const newUploads = req.files;
 
       if (existingCount >= 12) {
-        return res
-          .status(400)
-          .json({
-            message: "You already have 12 photos. Delete some to upload more.",
-          });
+        return res.status(400).json({
+          message: "You already have 12 photos. Delete some to upload more.",
+        });
       }
 
       const remainingSlots = 12 - existingCount;
@@ -171,12 +169,17 @@ user_router.delete("/delete-photo/:index", protect, async (req, res) => {
       return res.status(400).json({ message: "Index out of bounds" });
     }
 
-    const removedPhoto = user.photos.splice(index, 1); // remove photo by index
+    const removedPhoto = user.photos.splice(index, 1)[0];
+
+    if (removedPhoto.public_id) {
+      await cloudinary.uploader.destroy(removedPhoto.public_id);
+    }
+
     await user.save();
 
     res.status(200).json({
       message: "Photo deleted successfully",
-      removed: removedPhoto[0],
+      removed: removedPhoto,
       remainingPhotos: user.photos,
     });
   } catch (error) {
