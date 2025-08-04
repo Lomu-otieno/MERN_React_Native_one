@@ -39,12 +39,14 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-    photos: [
-      {
-        url: { type: String },
-        public_id: { type: String },
-      },
-    ],
+    photos: {
+      type: [String],
+      default: [],
+    },
+    photoPublicIds: {
+      type: [String],
+      default: [],
+    },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
     passes: [
       { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },

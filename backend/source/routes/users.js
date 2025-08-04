@@ -137,26 +137,26 @@ user_router.post(
       const remainingSlots = 12 - existingCount;
       const filesToSave = req.files.slice(0, remainingSlots);
 
-      // Upload to Cloudinary
-      const uploadedPhotos = [];
+      const uploadedUrls = [];
+      const uploadedPublicIds = [];
+
       for (const file of filesToSave) {
         const result = await cloudinary.uploader.upload(file.path, {
-          folder: "dating-app/photos", // Optional folder
+          folder: "dating-app/photos",
         });
 
-        uploadedPhotos.push({
-          url: result.secure_url,
-          public_id: result.public_id,
-        });
+        uploadedUrls.push(result.secure_url);
+        uploadedPublicIds.push(result.public_id);
       }
 
-      // Save to user
-      user.photos.push(...uploadedPhotos);
+      // Save URLs and public IDs separately
+      user.photos.push(...uploadedUrls);
+      user.photoPublicIds.push(...uploadedPublicIds);
       await user.save();
 
       res.status(200).json({
-        message: `Uploaded ${uploadedPhotos.length} photo(s).`,
-        photos: uploadedPhotos,
+        message: `Uploaded ${uploadedUrls.length} photo(s).`,
+        photos: uploadedUrls,
       });
     } catch (err) {
       console.error("Upload error:", err);
@@ -178,17 +178,18 @@ user_router.delete("/delete-photo/:index", protect, async (req, res) => {
       return res.status(400).json({ message: "Index out of bounds" });
     }
 
-    const removedPhoto = user.photos.splice(index, 1)[0];
+    const removedPhotoUrl = user.photos.splice(index, 1)[0];
+    const removedPublicId = user.photoPublicIds.splice(index, 1)[0];
 
-    if (removedPhoto.public_id) {
-      await cloudinary.uploader.destroy(removedPhoto.public_id);
+    if (removedPublicId) {
+      await cloudinary.uploader.destroy(removedPublicId);
     }
 
     await user.save();
 
     res.status(200).json({
       message: "Photo deleted successfully",
-      removed: removedPhoto,
+      removed: removedPhotoUrl,
       remainingPhotos: user.photos,
     });
   } catch (error) {
