@@ -141,15 +141,11 @@ user_router.post(
       const uploadedPublicIds = [];
 
       for (const file of filesToSave) {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: "dating-app/photos",
-        });
-
+        const result = await cloudinary.uploader.upload(file.path); // removed folder
         uploadedUrls.push(result.secure_url);
         uploadedPublicIds.push(result.public_id);
       }
 
-      // Save URLs and public IDs separately
       user.photos.push(...uploadedUrls);
       user.photoPublicIds.push(...uploadedPublicIds);
       await user.save();

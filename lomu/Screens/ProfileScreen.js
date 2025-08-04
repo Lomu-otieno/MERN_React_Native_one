@@ -156,9 +156,10 @@ const ProfileScreen = () => {
           },
         }
       );
+      fetchPost();
 
       alert("Photos uploaded!");
-      console.log("Uploaded URLs:", res.data.urls);
+      console.log("Uploaded URLs:", res.data.Urls);
 
       // ✅ Refresh photo list after upload
       fetchPost(); // << THIS LINE
