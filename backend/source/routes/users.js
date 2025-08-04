@@ -136,6 +136,33 @@ user_router.post(
   }
 );
 
+user_router.delete("/delete-photo/:index", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const index = parseInt(req.params.index, 10);
+
+    if (!user || isNaN(index)) {
+      return res.status(400).json({ message: "Invalid user or index" });
+    }
+
+    if (index < 0 || index >= user.photos.length) {
+      return res.status(400).json({ message: "Index out of bounds" });
+    }
+
+    const removedPhoto = user.photos.splice(index, 1); // remove photo by index
+    await user.save();
+
+    res.status(200).json({
+      message: "Photo deleted successfully",
+      removed: removedPhoto[0],
+      remainingPhotos: user.photos,
+    });
+  } catch (error) {
+    console.error("Delete photo error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 user_router.get("/explore", protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);

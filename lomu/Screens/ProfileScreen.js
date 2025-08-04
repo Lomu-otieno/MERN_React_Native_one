@@ -259,6 +259,14 @@ const ProfileScreen = () => {
           <Ionicons name="log-out" size={24} color="#FF0050" />
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.addPhotoButton}
+          onPress={pickPost}
+          disabled={uploading}
+        >
+          <Feather name="plus" size={24} color="#FF0050" />
+        </TouchableOpacity>
+
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
           refreshControl={
@@ -348,15 +356,7 @@ const ProfileScreen = () => {
                 <Text style={styles.noPhotosText}>No photos yet</Text>
               )}
 
-              {images.length < 5 && (
-                <TouchableOpacity
-                  style={styles.addPhotoButton}
-                  onPress={pickPost}
-                  disabled={uploading}
-                >
-                  <Feather name="plus" size={24} color="#FF0050" />
-                </TouchableOpacity>
-              )}
+              {images.length < 5}
             </View>
           </View>
         </ScrollView>
@@ -523,6 +523,10 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   addPhotoButton: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    zIndex: 100,
     width: "10%",
     aspectRatio: 1,
     margin: 5,
