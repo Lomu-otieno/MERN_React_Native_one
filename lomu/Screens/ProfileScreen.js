@@ -118,40 +118,82 @@ const ProfileScreen = () => {
     }
   };
 
-  const uploadPhoto = async (uri) => {
+  const pickPost = async () => {
     try {
-      setUploading(true);
-      const token = await AsyncStorage.getItem("token");
-      const formData = new FormData();
-      formData.append("photo", {
-        uri,
-        name: `photo_${Date.now()}.jpg`,
-        type: "image/jpeg",
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+        alert("Permission to access media library is required!");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsMultipleSelection: true,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
       });
 
+      if (result.canceled || result.assets.length === 0) return;
+
+      const formData = new FormData();
+      result.assets.forEach((asset, index) => {
+        formData.append("images", {
+          uri: asset.uri,
+          name: `photo_${index}.jpg`,
+          type: "image/jpeg",
+        });
+      });
+
+      const token = await AsyncStorage.getItem("token");
+
       const res = await axios.post(
-        `${SERVER_URL}/api/users/upload-photo`,
+        `${SERVER_URL}/api/users/upload-photos`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
-      setImages(res.data.photos);
-      Alert.alert("Success", "Photo uploaded successfully!");
-    } catch (error) {
-      console.error("Upload error:", error);
-      Alert.alert("Error", "Failed to upload photo");
-    } finally {
-      setUploading(false);
+      alert("Photos uploaded!");
+      console.log("Uploaded URLs:", res.data.urls);
+
+      // ✅ Refresh photo list after upload
+      fetchPost(); // << THIS LINE
+    } catch (err) {
+      console.error("Upload error:", err.message);
+      alert("Upload failed.");
     }
   };
 
+  const fetchPost = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const res = await axios.get(`${SERVER_URL}/api/users/view-profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("Full response data:", res.data); // 🔍 log everything
+
+      // If res.data.user exists:
+      const fetchedPhotos = res.data.photos || res.data.user?.photos || [];
+      setImages(fetchedPhotos);
+    } catch (err) {
+      console.error("Error fetching profile:", err.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchPost();
+  }, []);
+
   const deletePhoto = async (index) => {
     try {
+      setUploading(true);
       const token = await AsyncStorage.getItem("token");
       await axios.delete(`${SERVER_URL}/api/users/delete-photo/${index}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -162,6 +204,8 @@ const ProfileScreen = () => {
     } catch (error) {
       console.error("Delete error:", error);
       Alert.alert("Error", "Failed to delete photo");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -206,6 +250,15 @@ const ProfileScreen = () => {
       style={styles.container}
     >
       <SafeAreaView style={styles.safeArea}>
+        {/* Sticky Logout Button */}
+        <TouchableOpacity
+          style={styles.stickyLogoutButton}
+          onPress={handleLogout}
+          disabled={uploading}
+        >
+          <Ionicons name="log-out" size={24} color="#FF0050" />
+        </TouchableOpacity>
+
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
           refreshControl={
@@ -227,7 +280,9 @@ const ProfileScreen = () => {
             >
               <Image
                 source={{
-                  uri: user.profileImage || "https://i.imgur.com/5WzFNgi.jpg",
+                  uri:
+                    user.profileImage ||
+                    "https://i.pinimg.com/1200x/cf/a9/c1/cfa9c1d868f8ba76a23a93150516787d.jpg",
                 }}
                 style={styles.avatar}
               />
@@ -240,13 +295,17 @@ const ProfileScreen = () => {
                 </View>
               )}
             </TouchableOpacity>
-
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{likesCount}</Text>
-                <Text style={styles.statLabel}>Likes</Text>
+            <TouchableOpacity
+              style={styles.statsContainer}
+              onPress={() => navigation.navigate("Matches")}
+            >
+              <View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{likesCount}</Text>
+                  <Text style={styles.statLabel}>Matches</Text>
+                </View>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Profile Info */}
@@ -257,13 +316,17 @@ const ProfileScreen = () => {
           </View>
 
           {/* Edit Profile Button */}
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => navigation.navigate("EditProfile")}
-            disabled={uploading}
-          >
-            <Text style={styles.editButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
+          <View style={styles.editProfileContainer}>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => navigation.navigate("EditProfile")}
+              disabled={uploading}
+            >
+              <Text style={styles.editButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider} />
 
           {/* Photos Section */}
           <View style={styles.sectionContainer}>
@@ -284,10 +347,11 @@ const ProfileScreen = () => {
               ) : (
                 <Text style={styles.noPhotosText}>No photos yet</Text>
               )}
+
               {images.length < 5 && (
                 <TouchableOpacity
                   style={styles.addPhotoButton}
-                  onPress={() => pickImage(false)}
+                  onPress={pickPost}
                   disabled={uploading}
                 >
                   <Feather name="plus" size={24} color="#FF0050" />
@@ -295,15 +359,6 @@ const ProfileScreen = () => {
               )}
             </View>
           </View>
-
-          {/* Logout Button */}
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            disabled={uploading}
-          >
-            <Text style={styles.logoutText}>Log Out</Text>
-          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
       <StatusBar
@@ -324,7 +379,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    paddingBottom: 50,
+    paddingBottom: 80,
   },
   centered: {
     justifyContent: "center",
@@ -408,21 +463,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 5,
   },
+  editProfileContainer: {
+    paddingHorizontal: 20,
+    marginVertical: 15,
+  },
   editButton: {
     backgroundColor: "#252525",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    alignSelf: "center",
-    marginTop: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#3A3A3A",
   },
   editButtonText: {
     color: "white",
     fontWeight: "600",
+    fontSize: 16,
+  },
+  divider: {
+    height: 0.5,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginHorizontal: 20,
+    marginVertical: 5,
   },
   sectionContainer: {
-    marginTop: 30,
     paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 5,
   },
   sectionTitle: {
     color: "white",
@@ -433,7 +500,8 @@ const styles = StyleSheet.create({
   photosContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
+    marginHorizontal: -5,
   },
   photoWrapper: {
     width: "30%",
@@ -455,7 +523,7 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   addPhotoButton: {
-    width: "30%",
+    width: "10%",
     aspectRatio: 1,
     margin: 5,
     borderRadius: 10,
@@ -471,18 +539,19 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginVertical: 20,
   },
-  logoutButton: {
-    backgroundColor: "#FF0050",
-    paddingVertical: 15,
-    paddingHorizontal: 40,
+  stickyLogoutButton: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    zIndex: 100,
+    backgroundColor: "rgba(30, 30, 30, 0.8)",
+    width: 50,
+    height: 50,
     borderRadius: 25,
-    alignSelf: "center",
-    marginTop: 40,
-  },
-  logoutText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FF0050",
   },
   errorText: {
     color: "white",

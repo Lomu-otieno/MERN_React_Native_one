@@ -108,6 +108,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
       profileImage: user.profileImage,
       likes: user.likes,
       likesCount: user.likes.length,
+      photos: user.photos,
     });
   } catch (error) {
     console.error("View profile error:", error);
