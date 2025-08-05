@@ -17,25 +17,26 @@ user_router.post(
       const user = await User.findById(req.user._id);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      // Delete old image from Cloudinary (optional)
-      if (user.profileImage) {
-        const segments = user.profileImage.split("/");
-        const fileWithExtension = segments.pop(); // e.g., photo.jpg
-        const publicId = fileWithExtension.split(".")[0]; // e.g., photo
-
-        await cloudinary.uploader.destroy(`dating_app_photos/${publicId}`);
+      // Delete old profile image
+      if (user.profileImagePublicId) {
+        await cloudinary.uploader.destroy(user.profileImagePublicId);
       }
 
-      // Save new image URL
-      user.profileImage = req.file.path; // Cloudinary gives the URL here
+      // Upload new profile image
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "dating_app/profile_images",
+      });
+
+      user.profileImage = result.secure_url;
+      user.profileImagePublicId = result.public_id;
       await user.save();
 
       res.status(200).json({
-        message: "Profile image updated successfully",
-        url: user.profileImage,
+        message: "Profile image updated",
+        profileImage: user.profileImage,
       });
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error("Upload profile error:", err);
       res.status(500).json({ message: "Server error" });
     }
   }
@@ -119,43 +120,59 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.single("image"),
+  upload.array("images", 18),
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      if (!user) return res.status(404).json({ message: "User not found" });
 
-      // Remove previous profile image from Cloudinary (if exists)
-      if (user.profileImage) {
-        const publicId = user.profileImage.split("/").pop().split(".")[0];
-        try {
-          await cloudinary.uploader.destroy(publicId);
-        } catch (err) {
-          console.warn("Failed to delete old profile image:", err.message);
+      const existingCount = user.photos.length;
+      const newCount = req.files.length;
+      let totalCount = existingCount + newCount;
+
+      // If user has >=12, remove oldest photos to make space
+      while (totalCount > 18) {
+        // Remove oldest photo
+        const removedPublicId = user.photoPublicIds?.shift();
+        user.photos.shift();
+        totalCount--;
+
+        // Delete from Cloudinary
+        if (removedPublicId) {
+          try {
+            await cloudinary.uploader.destroy(removedPublicId);
+          } catch (err) {
+            console.warn(
+              `Failed to delete old image on Cloudinary: ${err.message}`
+            );
+          }
         }
       }
 
-      // Upload new image to Cloudinary
-      const result = await cloudinary.uploader.upload(req.file.path);
-      user.profileImage = result.secure_url;
-      // Optional: user.profileImageId = result.public_id;
+      // Upload new images
+      const uploadResults = await Promise.all(
+        req.files.map((file) =>
+          cloudinary.uploader.upload(file.path, {
+            folder: "dating_app/post_photos",
+          })
+        )
+      );
 
-      // Optional: Trim photos if already at limit
-      if (user.photos.length >= 18) {
-        user.photos.shift();
-        user.photoPublicIds?.shift(); // Only if using photoPublicIds
-      }
+      const urls = uploadResults.map((r) => r.secure_url);
+      const ids = uploadResults.map((r) => r.public_id);
+
+      // Save new images
+      user.photos.push(...urls);
+      user.photoPublicIds = (user.photoPublicIds || []).concat(ids);
 
       await user.save();
 
       res.status(200).json({
-        message: "Profile image updated successfully",
-        url: user.profileImage,
+        message: `Uploaded ${urls.length} photo(s)`,
+        photos: urls,
       });
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error("Upload photos error:", err);
       res.status(500).json({ message: "Server error" });
     }
   }
@@ -164,41 +181,24 @@ user_router.post(
 user_router.delete("/delete-photo/:index", protect, async (req, res) => {
   try {
     const { index } = req.params;
-
     const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const photoIndex = parseInt(index);
-
-    if (
-      isNaN(photoIndex) ||
-      photoIndex < 0 ||
-      photoIndex >= user.photos.length
-    ) {
+    const i = parseInt(index);
+    if (isNaN(i) || i < 0 || i >= user.photos.length) {
       return res.status(400).json({ message: "Invalid photo index" });
     }
 
-    // Get Cloudinary public_id from stored publicIds
-    const publicId = user.photoPublicIds?.[photoIndex];
+    const publicId = user.photoPublicIds?.[i];
     if (publicId) {
-      try {
-        await cloudinary.uploader.destroy(publicId);
-      } catch (err) {
-        console.warn(`Failed to delete image on Cloudinary: ${err.message}`);
-      }
+      await cloudinary.uploader.destroy(publicId);
     }
 
-    // Remove the photo and public_id from arrays
-    user.photos.splice(photoIndex, 1);
-    if (user.photoPublicIds) {
-      user.photoPublicIds.splice(photoIndex, 1);
-    }
-
+    user.photos.splice(i, 1);
+    if (user.photoPublicIds) user.photoPublicIds.splice(i, 1);
     await user.save();
 
-    res.status(200).json({ message: "Photo deleted successfully" });
+    res.status(200).json({ message: "Photo deleted" });
   } catch (err) {
     console.error("Delete photo error:", err);
     res.status(500).json({ message: "Server error" });

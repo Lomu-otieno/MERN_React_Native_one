@@ -30,6 +30,7 @@ const ProfileScreen = () => {
   const [likesCount, setLikesCount] = useState(0);
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [profileImage, setProfileImage] = useState();
 
   const fetchUser = async () => {
     try {
@@ -40,6 +41,7 @@ const ProfileScreen = () => {
       setUser(res.data);
       setLikesCount(res.data.likesCount || 0);
       setImages(res.data.photos || []);
+      setProfileImage(res.data.profileImage);
     } catch (error) {
       console.error("Error fetching profile:", error);
       Alert.alert("Error", "Failed to load profile.");
@@ -61,7 +63,7 @@ const ProfileScreen = () => {
 
   const pickImage = async (isProfilePhoto = false) => {
     try {
-      if (images.length >= 5 && !isProfilePhoto) {
+      if (images.length >= 2 && !isProfilePhoto) {
         Alert.alert("Limit Reached", "You can only upload up to 5 photos.");
         return;
       }
