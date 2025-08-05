@@ -159,7 +159,6 @@ const ProfileScreen = () => {
 
       uris.forEach((uri, index) => {
         formData.append("photos[]", {
-          // Changed to "photos[]" to match backend
           uri,
           name: `photo_${Date.now()}_${index}.jpg`,
           type: "image/jpeg",
@@ -174,25 +173,32 @@ const ProfileScreen = () => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
+          timeout: 30000, // 30-second timeout
         }
       );
 
-      // Handle both string and object photo formats
-      const updatedPhotos =
-        res.data?.photos?.map((photo) =>
-          typeof photo === "string" ? photo : photo.url
-        ) || images;
+      // Standardize photo format
+      const standardizedPhotos = res.data.photos.map((photo) => ({
+        url: typeof photo === "string" ? photo : photo.url,
+        public_id:
+          typeof photo === "string"
+            ? photo.split("/").pop().split(".")[0]
+            : photo.public_id,
+      }));
 
-      setImages(updatedPhotos);
+      setImages(standardizedPhotos);
       Alert.alert(
         "Success",
-        `${updatedPhotos.length - images.length} new photo(s) added!`
+        `Added ${res.data.successCount} photo(s)${res.data.failedUploads ? ` (${res.data.failedUploads.length} failed)` : ""}`
       );
     } catch (error) {
       console.error("Upload error:", error);
       Alert.alert(
-        "Error",
-        error.response?.data?.message || "Failed to upload photos"
+        "Upload Error",
+        error.response?.data?.message ||
+          (error.code === "ECONNABORTED"
+            ? "Request timed out"
+            : "Failed to upload photos")
       );
     } finally {
       setUploadingPosts(false);
@@ -203,15 +209,31 @@ const ProfileScreen = () => {
     try {
       setUploadingPosts(true);
       const token = await AsyncStorage.getItem("token");
-      await axios.delete(`${SERVER_URL}/api/users/delete-photo/${index}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const photoToDelete = images[index];
+
+      await axios.delete(`${SERVER_URL}/api/users/delete-photo`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        data: {
+          photoIndex: index,
+          photoUrl:
+            typeof photoToDelete === "string"
+              ? photoToDelete
+              : photoToDelete?.url,
+        },
       });
+
       const updatedImages = [...images];
       updatedImages.splice(index, 1);
       setImages(updatedImages);
     } catch (error) {
       console.error("Delete error:", error);
-      Alert.alert("Error", "Failed to delete photo");
+      Alert.alert(
+        "Error",
+        error.response?.data?.message || "Failed to delete photo"
+      );
     } finally {
       setUploadingPosts(false);
     }
