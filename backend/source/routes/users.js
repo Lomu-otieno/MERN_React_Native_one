@@ -126,50 +126,82 @@ user_router.post(
   upload.array("photos", 5), // max 5 files per request
   async (req, res) => {
     try {
+      // 1. Validate user exists
       const user = await User.findById(req.user._id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
 
+      // 2. Check remaining slots before processing
+      const remainingSlots = 18 - user.photos.length;
+      if (remainingSlots <= 0) {
+        return res.status(400).json({
+          message: "Photo limit reached (max 18)",
+          currentCount: user.photos.length,
+        });
+      }
+
+      // 3. Process only files that will fit
+      const filesToProcess = req.files.slice(0, remainingSlots);
       const uploadedPhotos = [];
+      const failedUploads = [];
 
-      for (const file of req.files) {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: "dating-app/photos", // Optional: remove if you don't want folder
-        });
+      // 4. Process uploads with better error handling
+      for (const file of filesToProcess) {
+        try {
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: "dating-app/photos",
+            transformation: [
+              { width: 1080, height: 1080, crop: "limit" }, // Standardize size
+              { quality: "auto" }, // Optimize quality
+            ],
+          });
 
-        uploadedPhotos.push({
-          url: result.secure_url,
-          public_id: result.public_id,
-        });
-      }
-
-      // Append new uploads
-      user.photos = [...user.photos, ...uploadedPhotos];
-
-      // If over 18, delete oldest from Cloudinary
-      if (user.photos.length > 18) {
-        const excessCount = user.photos.length - 18;
-        const removedPhotos = user.photos.slice(0, excessCount);
-
-        for (const photo of removedPhotos) {
-          await cloudinary.uploader.destroy(photo.public_id);
+          uploadedPhotos.push({
+            url: result.secure_url,
+            public_id: result.public_id,
+            uploadedAt: new Date(), // Track upload time
+          });
+        } catch (uploadError) {
+          console.error(`Failed to upload ${file.originalname}:`, uploadError);
+          failedUploads.push(file.originalname);
         }
-
-        // Trim the oldest
-        user.photos = user.photos.slice(excessCount);
       }
 
-      await user.save();
+      // 5. Update user photos if any succeeded
+      if (uploadedPhotos.length > 0) {
+        user.photos = [...user.photos, ...uploadedPhotos];
+        await user.save();
+      }
 
-      res.status(200).json({
-        message: "Photos uploaded",
+      // 6. Prepare response
+      const response = {
+        message: `Uploaded ${uploadedPhotos.length} photo(s)`,
+        successCount: uploadedPhotos.length,
         photos: user.photos,
-        addedCount: uploadedPhotos.length,
-      });
+      };
+
+      if (failedUploads.length > 0) {
+        response.failedUploads = failedUploads;
+        response.warning = `${failedUploads.length} upload(s) failed`;
+      }
+
+      res.status(200).json(response);
     } catch (err) {
       console.error("Upload error:", err);
-      res.status(500).json({ message: "Server error" });
+
+      // More specific error messages
+      let errorMessage = "Server error during photo upload";
+      if (err.message.includes("File too large")) {
+        errorMessage = "One or more files exceed size limit";
+      } else if (err.message.includes("invalid image file")) {
+        errorMessage = "Invalid image file(s) detected";
+      }
+
+      res.status(500).json({
+        message: errorMessage,
+        error: process.env.NODE_ENV === "development" ? err.message : undefined,
+      });
     }
   }
 );

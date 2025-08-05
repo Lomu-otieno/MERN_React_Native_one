@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 
+// Validator function for photos array limit
+function arrayLimit(val) {
+  return val.length <= 18;
+}
+
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -39,25 +44,42 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-    photos: [
+    photos: {
+      type: [
+        new mongoose.Schema({
+          url: {
+            type: String,
+            required: true,
+          },
+          public_id: {
+            type: String,
+            required: true,
+          },
+        }),
+      ],
+      validate: [arrayLimit, "{PATH} exceeds the limit of 18"],
+    },
+    likes: [
       {
-        url: String,
-        public_id: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
       },
     ],
-
-    photoPublicIds: {
-      type: [String],
-      default: [],
-    },
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
     passes: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
     ],
     matches: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
     ],
-
     resetPasswordToken: String,
     resetPasswordExpires: Date,
   },
