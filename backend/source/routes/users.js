@@ -123,7 +123,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.array("images", 5), // allow up to 5 at once
+  upload.array("photos", 5), // Changed from "images" to "photos"
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
@@ -131,26 +131,43 @@ user_router.post(
         return res.status(404).json({ message: "User not found" });
       }
 
-      const uploadedUrls = [];
-
-      for (const file of req.files) {
-        const result = await cloudinary.uploader.upload(file.path);
-        uploadedUrls.push(result.secure_url);
+      const remainingSlots = 18 - user.photos.length;
+      if (remainingSlots <= 0) {
+        return res.status(400).json({
+          message: "Maximum 18 photos reached",
+        });
       }
 
-      // Add to user photos
-      user.photos = user.photos.concat(uploadedUrls);
+      // Process only what can fit
+      const filesToProcess = req.files.slice(0, remainingSlots);
+      const newPhotos = [];
 
-      // Trim to max 18
-      if (user.photos.length > 18) {
-        user.photos = user.photos.slice(-18);
+      // Upload with deduplication checks
+      for (const file of filesToProcess) {
+        // Generate unique public_id
+        const publicId = `user_${user._id}_${Date.now()}_${file.originalname}`;
+
+        const result = await cloudinary.uploader.upload(file.path, {
+          public_id: publicId,
+          folder: "user_uploads",
+          overwrite: false, // Prevent overwrites
+          invalidate: true,
+        });
+
+        // Check if URL already exists
+        if (!user.photos.includes(result.secure_url)) {
+          newPhotos.push(result.secure_url);
+        }
       }
 
+      // Update user photos
+      user.photos = [...user.photos, ...newPhotos];
       await user.save();
 
       res.status(200).json({
-        message: "Photos uploaded",
+        message: `${newPhotos.length} photo(s) added`,
         photos: user.photos,
+        addedCount: newPhotos.length,
       });
     } catch (err) {
       console.error("Upload error:", err);

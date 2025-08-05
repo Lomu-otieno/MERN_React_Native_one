@@ -64,8 +64,8 @@ const ProfileScreen = () => {
 
   const pickImage = async (isProfilePhoto = false) => {
     try {
-      if (images.length >= 5 && !isProfilePhoto) {
-        Alert.alert("Limit Reached", "You can only upload up to 5 photos.");
+      if (images.length >= 2 && !isProfilePhoto) {
+        Alert.alert("Limit Reached", "You can only upload one photo.");
         return;
       }
 
@@ -120,29 +120,69 @@ const ProfileScreen = () => {
     }
   };
 
-  const uploadPhoto = async (uri) => {
+  const pickImages = async () => {
+    try {
+      if (images.length >= 18) {
+        Alert.alert("Limit Reached", "You can upload up to 18 photos maximum.");
+        return;
+      }
+      const availableSlots = 18 - images.length;
+      if (availableSlots <= 0) {
+        Alert.alert("Limit Reached", `You've reached the 18 photo limit.`);
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        allowsMultipleSelection: true, // Allow multiple selection
+        selectionLimit: 18 - images.length, // Limit based on remaining slots
+      });
+
+      if (!result.canceled && result.assets?.length > 0) {
+        await uploadPhotos(result.assets.map((asset) => asset.uri));
+      }
+    } catch (error) {
+      console.error("Image picker error:", error);
+      Alert.alert("Error", "Failed to pick images");
+    }
+  };
+
+  const uploadPhotos = async (uris) => {
     try {
       setUploadingPosts(true);
       const token = await AsyncStorage.getItem("token");
       const formData = new FormData();
-      formData.append("images", {
-        uri,
-        name: "photo.jpg",
-        type: "image/jpeg",
+
+      // Use "photos[]" for array format that Multer expects
+      uris.forEach((uri, index) => {
+        formData.append("photos[]", {
+          // Changed from "images" to "photos[]"
+          uri,
+          name: `photo_${Date.now()}_${index}.jpg`,
+          type: "image/jpeg",
+        });
       });
 
-      await axios.post(`${SERVER_URL}/api/users/upload-photos`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const res = await axios.post(
+        `${SERVER_URL}/api/users/upload-photos`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
-      Alert.alert("Success", "Photo uploaded!");
-      fetchUser();
+      // Use the response data instead of local state update
+      setImages(res.data.photos);
+      Alert.alert("Success", `${res.data.photos.length} new photo(s) added!`);
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert("Error", "Failed to upload photo");
+      Alert.alert("Error", "Failed to upload photos");
     } finally {
       setUploadingPosts(false);
     }
@@ -216,7 +256,7 @@ const ProfileScreen = () => {
 
         <TouchableOpacity
           style={styles.addPhotoButton}
-          onPress={() => pickImage(false)}
+          onPress={() => pickImages(false)}
           disabled={uploadingPosts}
         >
           <Feather name="plus" size={24} color="#FF0050" />
