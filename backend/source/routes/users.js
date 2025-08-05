@@ -23,9 +23,7 @@ user_router.post(
         const fileWithExtension = segments.pop(); // e.g., photo.jpg
         const publicId = fileWithExtension.split(".")[0]; // e.g., photo
 
-        await cloudinary.uploader.destroy(
-          `dating_app/profile_images/${publicId}`
-        );
+        await cloudinary.uploader.destroy(`dating_app/${publicId}`);
       }
 
       // Save new image URL
