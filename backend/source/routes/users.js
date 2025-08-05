@@ -123,7 +123,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.array("photos", 5),
+  upload.array("photos", 5), // max 5 files per request
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
@@ -131,21 +131,41 @@ user_router.post(
         return res.status(404).json({ message: "User not found" });
       }
 
-      const uploadedUrls = [];
+      const uploadedPhotos = [];
 
       for (const file of req.files) {
-        const result = await cloudinary.uploader.upload(file.path);
-        uploadedUrls.push(result.secure_url);
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: "dating-app/photos", // Optional: remove if you don't want folder
+        });
+
+        uploadedPhotos.push({
+          url: result.secure_url,
+          public_id: result.public_id,
+        });
       }
 
-      // Add to user photos
-      user.photos = [...user.photos, ...uploadedUrls];
+      // Append new uploads
+      user.photos = [...user.photos, ...uploadedPhotos];
+
+      // If over 18, delete oldest from Cloudinary
+      if (user.photos.length > 18) {
+        const excessCount = user.photos.length - 18;
+        const removedPhotos = user.photos.slice(0, excessCount);
+
+        for (const photo of removedPhotos) {
+          await cloudinary.uploader.destroy(photo.public_id);
+        }
+
+        // Trim the oldest
+        user.photos = user.photos.slice(excessCount);
+      }
+
       await user.save();
 
       res.status(200).json({
         message: "Photos uploaded",
-        photos: user.photos, // Make sure this is included
-        addedCount: uploadedUrls.length,
+        photos: user.photos,
+        addedCount: uploadedPhotos.length,
       });
     } catch (err) {
       console.error("Upload error:", err);

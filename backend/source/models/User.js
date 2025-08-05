@@ -39,10 +39,13 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-    photos: {
-      type: [String],
-      default: [],
-    },
+    photos: [
+      {
+        url: String,
+        public_id: String,
+      },
+    ],
+
     photoPublicIds: {
       type: [String],
       default: [],
