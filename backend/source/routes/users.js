@@ -125,17 +125,17 @@ user_router.post(
   protect,
   upload.array("images", 5), // Max 5 at a time
   async (req, res) => {
+    let uploadedPhotos = [];
+    let photosToDelete = []; // Track photos to delete from Cloudinary
+
     try {
       const user = await User.findById(req.user._id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const filesToProcess = req.files;
-      const uploadedPhotos = [];
-
       // Process all files (even if we're at the limit)
-      for (const file of filesToProcess) {
+      for (const file of req.files) {
         const result = await cloudinary.uploader.upload(file.path, {
           folder: "dating_app/post_photos",
           transformation: { width: 1080, crop: "limit" },
@@ -144,7 +144,7 @@ user_router.post(
         uploadedPhotos.push({
           url: result.secure_url,
           public_id: result.public_id,
-          createdAt: new Date(), // Add upload timestamp
+          createdAt: new Date(),
         });
       }
 
@@ -152,14 +152,17 @@ user_router.post(
       const totalPhotosAfterUpload = user.photos.length + uploadedPhotos.length;
       const photosToRemove = Math.max(0, totalPhotosAfterUpload - 18);
 
-      // Remove oldest photos if needed (sorted by createdAt)
+      // Remove oldest photos if needed
       if (photosToRemove > 0) {
         // Sort photos by date (oldest first)
         const sortedPhotos = [...user.photos].sort(
           (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
         );
 
-        // Keep only the newest photos (skip the oldest ones we need to remove)
+        // Identify photos to delete (oldest ones)
+        photosToDelete = sortedPhotos.slice(0, photosToRemove);
+
+        // Keep only the newest photos
         const remainingPhotos = sortedPhotos.slice(photosToRemove);
 
         // Combine with new uploads
@@ -169,27 +172,47 @@ user_router.post(
         user.photos = [...user.photos, ...uploadedPhotos];
       }
 
+      // Save the user first
       await user.save();
+
+      // Now delete the old photos from Cloudinary
+      if (photosToDelete.length > 0) {
+        const deletePromises = photosToDelete.map((photo) =>
+          cloudinary.uploader.destroy(photo.public_id).catch((err) => {
+            console.error(`Failed to delete image ${photo.public_id}:`, err);
+          })
+        );
+
+        await Promise.all(deletePromises);
+      }
 
       res.status(200).json({
         message: `${uploadedPhotos.length} photo(s) uploaded`,
         photos: user.photos,
         remainingSlots: Math.max(0, 18 - user.photos.length),
-        replacedCount: photosToRemove > 0 ? photosToRemove : 0,
+        replacedCount: photosToDelete.length,
       });
     } catch (err) {
       console.error("Upload error:", err);
 
-      // Clean up any Cloudinary uploads that succeeded before the error
+      // Cleanup procedure for failed upload
       try {
-        for (const photo of uploadedPhotos) {
-          await cloudinary.uploader.destroy(photo.public_id);
-        }
+        // Delete any newly uploaded photos from Cloudinary
+        const cleanupPromises = uploadedPhotos.map((photo) =>
+          cloudinary.uploader.destroy(photo.public_id).catch((cleanupErr) => {
+            console.error(`Cleanup failed for ${photo.public_id}:`, cleanupErr);
+          })
+        );
+
+        await Promise.all(cleanupPromises);
       } catch (cleanupErr) {
         console.error("Cleanup error:", cleanupErr);
       }
 
-      res.status(500).json({ message: "Server error" });
+      res.status(500).json({
+        message: "Server error",
+        details: err.message,
+      });
     }
   }
 );
