@@ -25,12 +25,13 @@ const SERVER_URL = "https://lomu-dating-backend.onrender.com";
 const ProfileScreen = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [images, setImages] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [profileImage, setProfileImage] = useState();
+  const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [uploadingPosts, setUploadingPosts] = useState(false);
+
+  const navigation = useNavigation();
 
   const fetchUser = async () => {
     try {
@@ -38,10 +39,10 @@ const ProfileScreen = () => {
       const res = await axios.get(`${SERVER_URL}/api/users/view-profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUser(res.data);
-      setLikesCount(res.data.likesCount || 0);
-      setImages(res.data.photos || []);
-      setProfileImage(res.data.profileImage);
+      const data = res.data.user || res.data;
+      setUser(data);
+      setLikesCount(data.likesCount || 0);
+      setImages(data.photos || []);
     } catch (error) {
       console.error("Error fetching profile:", error);
       Alert.alert("Error", "Failed to load profile.");
@@ -63,7 +64,7 @@ const ProfileScreen = () => {
 
   const pickImage = async (isProfilePhoto = false) => {
     try {
-      if (images.length >= 2 && !isProfilePhoto) {
+      if (images.length >= 5 && !isProfilePhoto) {
         Alert.alert("Limit Reached", "You can only upload up to 5 photos.");
         return;
       }
@@ -90,7 +91,7 @@ const ProfileScreen = () => {
 
   const uploadProfileImage = async (uri) => {
     try {
-      setUploading(true);
+      setUploadingProfile(true);
       const token = await AsyncStorage.getItem("token");
       const formData = new FormData();
       formData.append("image", {
@@ -110,93 +111,46 @@ const ProfileScreen = () => {
         }
       );
 
-      setUser({ ...user, profileImage: res.data.profileImage });
-      Alert.alert("Success", "Profile photo updated!");
+      setUser((prev) => ({ ...prev, profileImage: res.data.url }));
     } catch (error) {
       console.error("Upload error:", error);
       Alert.alert("Error", "Failed to upload profile photo");
     } finally {
-      setUploading(false);
+      setUploadingProfile(false);
     }
   };
 
-  const pickPost = async () => {
+  const uploadPhoto = async (uri) => {
     try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permissionResult.granted === false) {
-        alert("Permission to access media library is required!");
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsMultipleSelection: true,
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 1,
-      });
-
-      if (result.canceled || result.assets.length === 0) return;
-
+      setUploadingPosts(true);
+      const token = await AsyncStorage.getItem("token");
       const formData = new FormData();
-      result.assets.forEach((asset, index) => {
-        formData.append("images", {
-          uri: asset.uri,
-          name: `photo_${index}.jpg`,
-          type: "image/jpeg",
-        });
+      formData.append("images", {
+        uri,
+        name: "photo.jpg",
+        type: "image/jpeg",
       });
 
-      const token = await AsyncStorage.getItem("token");
-
-      const res = await axios.post(
-        `${SERVER_URL}/api/users/upload-photos`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      fetchPost();
-
-      alert("Photos uploaded!");
-      console.log("Uploaded URLs:", res.data.Urls);
-
-      // ✅ Refresh photo list after upload
-      fetchPost(); // << THIS LINE
-    } catch (err) {
-      console.error("Upload error:", err.message);
-      alert("Upload failed.");
-    }
-  };
-
-  const fetchPost = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      const res = await axios.get(`${SERVER_URL}/api/users/view-profile`, {
+      await axios.post(`${SERVER_URL}/api/users/upload-photos`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
         },
       });
 
-      console.log("Full response data:", res.data); // 🔍 log everything
-
-      // If res.data.user exists:
-      const fetchedPhotos = res.data.photos || res.data.user?.photos || [];
-      setImages(fetchedPhotos);
-    } catch (err) {
-      console.error("Error fetching profile:", err.message);
+      Alert.alert("Success", "Photo uploaded!");
+      fetchUser();
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert("Error", "Failed to upload photo");
+    } finally {
+      setUploadingPosts(false);
     }
   };
 
-  useEffect(() => {
-    fetchPost();
-  }, []);
-
   const deletePhoto = async (index) => {
     try {
-      setUploading(true);
+      setUploadingPosts(true);
       const token = await AsyncStorage.getItem("token");
       await axios.delete(`${SERVER_URL}/api/users/delete-photo/${index}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -208,7 +162,7 @@ const ProfileScreen = () => {
       console.error("Delete error:", error);
       Alert.alert("Error", "Failed to delete photo");
     } finally {
-      setUploading(false);
+      setUploadingPosts(false);
     }
   };
 
@@ -253,19 +207,17 @@ const ProfileScreen = () => {
       style={styles.container}
     >
       <SafeAreaView style={styles.safeArea}>
-        {/* Sticky Logout Button */}
         <TouchableOpacity
           style={styles.stickyLogoutButton}
           onPress={handleLogout}
-          disabled={uploading}
         >
           <Ionicons name="log-out" size={24} color="#FF0050" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.addPhotoButton}
-          onPress={pickPost}
-          disabled={uploading}
+          onPress={() => pickImage(false)}
+          disabled={uploadingPosts}
         >
           <Feather name="plus" size={24} color="#FF0050" />
         </TouchableOpacity>
@@ -282,12 +234,11 @@ const ProfileScreen = () => {
             />
           }
         >
-          {/* Profile Header */}
           <View style={styles.profileHeader}>
             <TouchableOpacity
               style={styles.avatarContainer}
               onPress={() => pickImage(true)}
-              disabled={uploading}
+              disabled={uploadingProfile}
             >
               <Image
                 source={{
@@ -300,38 +251,35 @@ const ProfileScreen = () => {
               <View style={styles.plusBadge}>
                 <Ionicons name="add" size={20} color="white" />
               </View>
-              {uploading && (
+              {uploadingProfile && (
                 <View style={styles.uploadingOverlay}>
                   <ActivityIndicator color="white" />
                 </View>
               )}
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.statsContainer}
               onPress={() => navigation.navigate("Matches")}
             >
-              <View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{likesCount}</Text>
-                  <Text style={styles.statLabel}>Matches</Text>
-                </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{likesCount}</Text>
+                <Text style={styles.statLabel}>Matches</Text>
               </View>
             </TouchableOpacity>
           </View>
 
-          {/* Profile Info */}
           <View style={styles.infoContainer}>
             <Text style={styles.username}>@{user.username}</Text>
             <Text style={styles.bio}>{user.bio || "No bio yet"}</Text>
             <Text style={styles.email}>{user.email}</Text>
           </View>
 
-          {/* Edit Profile Button */}
           <View style={styles.editProfileContainer}>
             <TouchableOpacity
               style={styles.editButton}
               onPress={() => navigation.navigate("EditProfile")}
-              disabled={uploading}
+              disabled={uploadingProfile || uploadingPosts}
             >
               <Text style={styles.editButtonText}>Edit Profile</Text>
             </TouchableOpacity>
@@ -339,9 +287,14 @@ const ProfileScreen = () => {
 
           <View style={styles.divider} />
 
-          {/* Photos Section */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Your Photos</Text>
+            {uploadingPosts && (
+              <View style={styles.uploadingPostsContainer}>
+                <ActivityIndicator color="#FF0050" />
+                <Text style={styles.uploadingText}>Uploading...</Text>
+              </View>
+            )}
             <View style={styles.photosContainer}>
               {images.length > 0 ? (
                 images.map((img, idx) => (
@@ -358,20 +311,20 @@ const ProfileScreen = () => {
               ) : (
                 <Text style={styles.noPhotosText}>No photos yet</Text>
               )}
-
-              {images.length < 5}
             </View>
           </View>
         </ScrollView>
       </SafeAreaView>
       <StatusBar
         barStyle="light-content"
-        backgroundColor="transparent"
         translucent
+        backgroundColor="transparent"
       />
     </LinearGradient>
   );
 };
+
+export default ProfileScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -426,6 +379,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  uploadingPostsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+  },
+  uploadingText: {
+    marginLeft: 8,
+    color: "#FF0050",
+  },
+
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -565,5 +529,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
-export default ProfileScreen;
