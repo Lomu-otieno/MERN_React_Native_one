@@ -30,9 +30,13 @@ user_router.post(
       user.profileImage = req.file.path; // Cloudinary gives the URL here
       await user.save();
 
+      // Re-fetch the updated user
+      const updatedUser = await User.findById(req.user._id);
+
       res.status(200).json({
         message: "Profile image updated successfully",
-        url: user.profileImage,
+        url: updatedUser.profileImage,
+        user: updatedUser, // returning the updated user document
       });
     } catch (err) {
       console.error("Upload error:", err);
