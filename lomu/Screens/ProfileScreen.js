@@ -158,7 +158,7 @@ const ProfileScreen = () => {
       const formData = new FormData();
 
       uris.forEach((uri, index) => {
-        formData.append("photos[]", {
+        formData.append("photos", {
           uri,
           name: `photo_${Date.now()}_${index}.jpg`,
           type: "image/jpeg",
