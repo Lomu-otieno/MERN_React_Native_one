@@ -39,10 +39,11 @@ const ProfileScreen = () => {
       const res = await axios.get(`${SERVER_URL}/api/users/view-profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       const data = res.data.user || res.data;
       setUser(data);
-      setLikesCount(data.likesCount || 0);
-      setImages(data.photos || []);
+      setLikesCount(data?.likesCount || 0);
+      setImages(data?.photos || []);
     } catch (error) {
       console.error("Error fetching profile:", error);
       Alert.alert("Error", "Failed to load profile.");
@@ -126,11 +127,11 @@ const ProfileScreen = () => {
         Alert.alert("Limit Reached", "You can upload up to 18 photos maximum.");
         return;
       }
-      const availableSlots = 18 - images.length;
-      if (availableSlots <= 0) {
-        Alert.alert("Limit Reached", `You've reached the 18 photo limit.`);
-        return;
-      }
+      // const availableSlots = 18 - images.length;
+      // if (availableSlots <= 0) {
+      //   Alert.alert("Limit Reached", `You've reached the 18 photo limit.`);
+      //   return;
+      // }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -156,10 +157,8 @@ const ProfileScreen = () => {
       const token = await AsyncStorage.getItem("token");
       const formData = new FormData();
 
-      // Use "photos[]" for array format that Multer expects
       uris.forEach((uri, index) => {
         formData.append("photos[]", {
-          // Changed from "images" to "photos[]"
           uri,
           name: `photo_${Date.now()}_${index}.jpg`,
           type: "image/jpeg",
@@ -177,12 +176,19 @@ const ProfileScreen = () => {
         }
       );
 
-      // Use the response data instead of local state update
-      setImages(res.data.photos);
-      Alert.alert("Success", `${res.data.photos.length} new photo(s) added!`);
+      // Safely handle response
+      const updatedPhotos = res.data?.photos || images;
+      setImages(updatedPhotos);
+      Alert.alert(
+        "Success",
+        res.data?.message || `${uris.length} photo(s) uploaded!`
+      );
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert("Error", "Failed to upload photos");
+      Alert.alert(
+        "Error",
+        error.response?.data?.message || "Failed to upload photos"
+      );
     } finally {
       setUploadingPosts(false);
     }

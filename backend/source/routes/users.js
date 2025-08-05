@@ -123,7 +123,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.array("photos", 5), // Changed from "images" to "photos"
+  upload.array("photos", 5),
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
@@ -131,43 +131,21 @@ user_router.post(
         return res.status(404).json({ message: "User not found" });
       }
 
-      const remainingSlots = 18 - user.photos.length;
-      if (remainingSlots <= 0) {
-        return res.status(400).json({
-          message: "Maximum 18 photos reached",
-        });
+      const uploadedUrls = [];
+
+      for (const file of req.files) {
+        const result = await cloudinary.uploader.upload(file.path);
+        uploadedUrls.push(result.secure_url);
       }
 
-      // Process only what can fit
-      const filesToProcess = req.files.slice(0, remainingSlots);
-      const newPhotos = [];
-
-      // Upload with deduplication checks
-      for (const file of filesToProcess) {
-        // Generate unique public_id
-        const publicId = `user_${user._id}_${Date.now()}_${file.originalname}`;
-
-        const result = await cloudinary.uploader.upload(file.path, {
-          public_id: publicId,
-          folder: "user_uploads",
-          overwrite: false, // Prevent overwrites
-          invalidate: true,
-        });
-
-        // Check if URL already exists
-        if (!user.photos.includes(result.secure_url)) {
-          newPhotos.push(result.secure_url);
-        }
-      }
-
-      // Update user photos
-      user.photos = [...user.photos, ...newPhotos];
+      // Add to user photos
+      user.photos = [...user.photos, ...uploadedUrls];
       await user.save();
 
       res.status(200).json({
-        message: `${newPhotos.length} photo(s) added`,
-        photos: user.photos,
-        addedCount: newPhotos.length,
+        message: "Photos uploaded",
+        photos: user.photos, // Make sure this is included
+        addedCount: uploadedUrls.length,
       });
     } catch (err) {
       console.error("Upload error:", err);
