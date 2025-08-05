@@ -123,7 +123,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.array("images", 5),
+  upload.array("images", 5), // Max 5 at a time
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
@@ -131,16 +131,10 @@ user_router.post(
         return res.status(404).json({ message: "User not found" });
       }
 
-      const remainingSlots = 18 - user.photos.length;
-      if (remainingSlots <= 0) {
-        return res.status(400).json({
-          message: "Maximum 18 photos reached. Delete some to upload more.",
-        });
-      }
-
-      const filesToProcess = req.files.slice(0, remainingSlots);
+      const filesToProcess = req.files;
       const uploadedPhotos = [];
 
+      // Process all files (even if we're at the limit)
       for (const file of filesToProcess) {
         const result = await cloudinary.uploader.upload(file.path, {
           folder: "dating_app/post_photos",
@@ -150,19 +144,51 @@ user_router.post(
         uploadedPhotos.push({
           url: result.secure_url,
           public_id: result.public_id,
+          createdAt: new Date(), // Add upload timestamp
         });
       }
 
-      user.photos = [...user.photos, ...uploadedPhotos];
+      // Calculate how many photos we need to remove
+      const totalPhotosAfterUpload = user.photos.length + uploadedPhotos.length;
+      const photosToRemove = Math.max(0, totalPhotosAfterUpload - 18);
+
+      // Remove oldest photos if needed (sorted by createdAt)
+      if (photosToRemove > 0) {
+        // Sort photos by date (oldest first)
+        const sortedPhotos = [...user.photos].sort(
+          (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+        );
+
+        // Keep only the newest photos (skip the oldest ones we need to remove)
+        const remainingPhotos = sortedPhotos.slice(photosToRemove);
+
+        // Combine with new uploads
+        user.photos = [...remainingPhotos, ...uploadedPhotos];
+      } else {
+        // Just append the new photos
+        user.photos = [...user.photos, ...uploadedPhotos];
+      }
+
       await user.save();
 
       res.status(200).json({
         message: `${uploadedPhotos.length} photo(s) uploaded`,
         photos: user.photos,
-        remainingSlots: 18 - user.photos.length,
+        remainingSlots: Math.max(0, 18 - user.photos.length),
+        replacedCount: photosToRemove > 0 ? photosToRemove : 0,
       });
     } catch (err) {
       console.error("Upload error:", err);
+
+      // Clean up any Cloudinary uploads that succeeded before the error
+      try {
+        for (const photo of uploadedPhotos) {
+          await cloudinary.uploader.destroy(photo.public_id);
+        }
+      } catch (cleanupErr) {
+        console.error("Cleanup error:", cleanupErr);
+      }
+
       res.status(500).json({ message: "Server error" });
     }
   }

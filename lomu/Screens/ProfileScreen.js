@@ -123,11 +123,6 @@ const ProfileScreen = () => {
 
   const pickImages = async () => {
     try {
-      if (images.length >= 18) {
-        Alert.alert("Limit Reached", "You can upload up to 18 photos maximum.");
-        return;
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -341,7 +336,7 @@ const ProfileScreen = () => {
             {uploadingPosts && (
               <View style={styles.uploadingPostsContainer}>
                 <ActivityIndicator color="#FF0050" />
-                <Text style={styles.uploadingText}>Uploading...</Text>
+                <Text style={styles.uploadingText}>Updating...</Text>
               </View>
             )}
             <View style={styles.photosContainer}>
