@@ -23,7 +23,9 @@ user_router.post(
         const fileWithExtension = segments.pop(); // e.g., photo.jpg
         const publicId = fileWithExtension.split(".")[0]; // e.g., photo
 
-        await cloudinary.uploader.destroy(`dating_app_photos/${publicId}`);
+        await cloudinary.uploader.destroy(
+          `dating_app/profile_images/${publicId}`
+        );
       }
 
       // Save new image URL
@@ -143,7 +145,7 @@ user_router.post(
 
       for (const file of filesToProcess) {
         const result = await cloudinary.uploader.upload(file.path, {
-          folder: "user_photos",
+          folder: "dating_app/profile_images",
           transformation: { width: 1080, crop: "limit" },
         });
         uploadedUrls.push(result.secure_url);
