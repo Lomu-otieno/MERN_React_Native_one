@@ -158,7 +158,8 @@ const ProfileScreen = () => {
       const formData = new FormData();
 
       uris.forEach((uri, index) => {
-        formData.append("photos", {
+        formData.append("photos[]", {
+          // Changed to "photos[]" to match backend
           uri,
           name: `photo_${Date.now()}_${index}.jpg`,
           type: "image/jpeg",
@@ -176,12 +177,16 @@ const ProfileScreen = () => {
         }
       );
 
-      // Safely handle response
-      const updatedPhotos = res.data?.photos || images;
+      // Handle both string and object photo formats
+      const updatedPhotos =
+        res.data?.photos?.map((photo) =>
+          typeof photo === "string" ? photo : photo.url
+        ) || images;
+
       setImages(updatedPhotos);
       Alert.alert(
         "Success",
-        res.data?.message || `${uris.length} photo(s) uploaded!`
+        `${updatedPhotos.length - images.length} new photo(s) added!`
       );
     } catch (error) {
       console.error("Upload error:", error);
@@ -345,7 +350,10 @@ const ProfileScreen = () => {
               {images.length > 0 ? (
                 images.map((img, idx) => (
                   <View key={idx} style={styles.photoWrapper}>
-                    <Image source={{ uri: img }} style={styles.photo} />
+                    <Image
+                      source={{ uri: typeof img === "string" ? img : img.url }}
+                      style={styles.photo}
+                    />
                     <TouchableOpacity
                       style={styles.deletePhotoButton}
                       onPress={() => deletePhoto(idx)}
