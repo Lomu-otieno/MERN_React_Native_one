@@ -11,35 +11,32 @@ const user_router = express.Router();
 user_router.post(
   "/upload-profile",
   protect,
-  upload.single("image"), // single file field named "image"
+  upload.single("image"),
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      // 1. Delete old image if exists
-      if (user.profileImagePublicId) {
-        await cloudinary.uploader.destroy(user.profileImagePublicId);
+      // Delete old image from Cloudinary (optional)
+      if (user.profileImage) {
+        const segments = user.profileImage.split("/");
+        const fileWithExtension = segments.pop(); // e.g., photo.jpg
+        const publicId = fileWithExtension.split(".")[0]; // e.g., photo
+
+        await cloudinary.uploader.destroy(`dating_app_photos/${publicId}`);
       }
 
-      // 2. Upload new image to Cloudinary in the correct folder
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "dating-app/profile_images", // ✅ correct folder
-        transformation: [
-          { width: 500, height: 500, crop: "fill" }, // optional crop/resize
-          { quality: "auto" },
-        ],
-      });
-
-      // 3. Save secure_url and public_id to user profile
-      user.profileImage = result.secure_url;
-      user.profileImagePublicId = result.public_id;
+      // Save new image URL
+      user.profileImage = req.file.path; // Cloudinary gives the URL here
       await user.save();
+
+      // Re-fetch the updated user
+      const updatedUser = await User.findById(req.user._id);
 
       res.status(200).json({
         message: "Profile image updated successfully",
-        url: user.profileImage,
-        user,
+        url: updatedUser.profileImage,
+        user: updatedUser, // returning the updated user document
       });
     } catch (err) {
       console.error("Upload error:", err);
@@ -149,21 +146,21 @@ user_router.post(
       const uploadedPhotos = [];
       const failedUploads = [];
 
-      // 4. Upload each file to 'dating-app/post_photos'
+      // 4. Process uploads with better error handling
       for (const file of filesToProcess) {
         try {
           const result = await cloudinary.uploader.upload(file.path, {
-            folder: "dating-app/post_photos", // ✅ Updated folder
+            folder: "dating-app/photos",
             transformation: [
-              { width: 1080, height: 1080, crop: "limit" }, // Optional
-              { quality: "auto" }, // Optional optimization
+              { width: 1080, height: 1080, crop: "limit" }, // Standardize size
+              { quality: "auto" }, // Optimize quality
             ],
           });
 
           uploadedPhotos.push({
             url: result.secure_url,
             public_id: result.public_id,
-            uploadedAt: new Date(),
+            uploadedAt: new Date(), // Track upload time
           });
         } catch (uploadError) {
           console.error(`Failed to upload ${file.originalname}:`, uploadError);
@@ -171,13 +168,13 @@ user_router.post(
         }
       }
 
-      // 5. Save successful uploads
+      // 5. Update user photos if any succeeded
       if (uploadedPhotos.length > 0) {
         user.photos = [...user.photos, ...uploadedPhotos];
         await user.save();
       }
 
-      // 6. Response
+      // 6. Prepare response
       const response = {
         message: `Uploaded ${uploadedPhotos.length} photo(s)`,
         successCount: uploadedPhotos.length,
@@ -193,6 +190,7 @@ user_router.post(
     } catch (err) {
       console.error("Upload error:", err);
 
+      // More specific error messages
       let errorMessage = "Server error during photo upload";
       if (err.message.includes("File too large")) {
         errorMessage = "One or more files exceed size limit";
