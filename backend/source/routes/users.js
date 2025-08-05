@@ -145,7 +145,7 @@ user_router.post(
 
       for (const file of filesToProcess) {
         const result = await cloudinary.uploader.upload(file.path, {
-          folder: "dating_app/profile_images",
+          folder: "dating_app/post_photos",
           transformation: { width: 1080, crop: "limit" },
         });
 
