@@ -125,7 +125,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.array("images", 5), // Max 5 at a time
+  upload.array("images", 5),
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
@@ -141,21 +141,25 @@ user_router.post(
       }
 
       const filesToProcess = req.files.slice(0, remainingSlots);
-      const uploadedUrls = [];
+      const uploadedPhotos = [];
 
       for (const file of filesToProcess) {
         const result = await cloudinary.uploader.upload(file.path, {
           folder: "dating_app/profile_images",
           transformation: { width: 1080, crop: "limit" },
         });
-        uploadedUrls.push(result.secure_url);
+
+        uploadedPhotos.push({
+          url: result.secure_url,
+          public_id: result.public_id,
+        });
       }
 
-      user.photos = [...user.photos, ...uploadedUrls];
+      user.photos = [...user.photos, ...uploadedPhotos];
       await user.save();
 
       res.status(200).json({
-        message: `${uploadedUrls.length} photo(s) uploaded`,
+        message: `${uploadedPhotos.length} photo(s) uploaded`,
         photos: user.photos,
         remainingSlots: 18 - user.photos.length,
       });
