@@ -217,38 +217,48 @@ user_router.post(
   }
 );
 
-// Update delete endpoint to handle both index and URL
 user_router.delete("/delete-photo", protect, async (req, res) => {
   try {
-    const { photoIndex, photoUrl } = req.body;
+    const { photoIndex, photoPublicId } = req.body;
+
+    if (typeof photoIndex !== "number" || !photoPublicId) {
+      return res.status(400).json({
+        message: "Invalid request parameters",
+      });
+    }
+
     const user = await User.findById(req.user._id);
-
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    // Handle both index and URL deletion
-    let photoToDelete;
-    if (photoIndex !== undefined) {
-      photoToDelete = user.photos[photoIndex];
-      user.photos.splice(photoIndex, 1);
-    } else if (photoUrl) {
-      user.photos = user.photos.filter(
-        (p) => (typeof p === "string" ? p : p.url) !== photoUrl
-      );
-      photoToDelete = photoUrl;
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // Delete from Cloudinary
-    if (photoToDelete?.public_id) {
-      await cloudinary.uploader.destroy(photoToDelete.public_id);
-    } else if (typeof photoToDelete === "object") {
-      await cloudinary.uploader.destroy(photoToDelete.public_id);
+    // Verify the photo exists at this index
+    if (photoIndex < 0 || photoIndex >= user.photos.length) {
+      return res.status(400).json({ message: "Invalid photo index" });
     }
 
+    // Verify the public ID matches
+    if (user.photos[photoIndex].public_id !== photoPublicId) {
+      return res.status(400).json({ message: "Photo ID mismatch" });
+    }
+
+    // Delete from Cloudinary first
+    await cloudinary.uploader.destroy(photoPublicId);
+
+    // Remove from user's photos array
+    user.photos.splice(photoIndex, 1);
     await user.save();
-    res.status(200).json({ photos: user.photos });
-  } catch (error) {
-    console.error("Delete error:", error);
-    res.status(500).json({ message: "Failed to delete photo" });
+
+    res.status(200).json({
+      message: "Photo deleted successfully",
+      photos: user.photos,
+    });
+  } catch (err) {
+    console.error("Delete error:", err);
+    res.status(500).json({
+      message: "Failed to delete photo",
+      error: err.message,
+    });
   }
 });
 

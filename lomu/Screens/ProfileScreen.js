@@ -182,6 +182,12 @@ const ProfileScreen = () => {
       const token = await AsyncStorage.getItem("token");
       const photoToDelete = images[index];
 
+      // Get the public_id (handle both string and object formats)
+      const publicId =
+        typeof photoToDelete === "string"
+          ? photoToDelete.split("/").pop().split(".")[0] // Extract from URL if string
+          : photoToDelete.public_id;
+
       await axios.delete(`${SERVER_URL}/api/users/delete-photo`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -189,13 +195,11 @@ const ProfileScreen = () => {
         },
         data: {
           photoIndex: index,
-          photoUrl:
-            typeof photoToDelete === "string"
-              ? photoToDelete
-              : photoToDelete?.url,
+          photoPublicId: publicId,
         },
       });
 
+      // Update local state immediately for better UX
       const updatedImages = [...images];
       updatedImages.splice(index, 1);
       setImages(updatedImages);
@@ -209,7 +213,6 @@ const ProfileScreen = () => {
       setUploadingPosts(false);
     }
   };
-
   useEffect(() => {
     fetchUser();
     requestMediaPermission();
@@ -249,6 +252,15 @@ const ProfileScreen = () => {
     <LinearGradient
       colors={["#010101", "#131313", "#212121"]}
       style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={["#FF0050"]}
+          tintColor="#FF0050"
+          progressBackgroundColor="#1A1A1A"
+        />
+      }
     >
       <SafeAreaView style={styles.safeArea}>
         <TouchableOpacity
@@ -266,71 +278,59 @@ const ProfileScreen = () => {
           <Feather name="plus" size={24} color="#FF0050" />
         </TouchableOpacity>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={["#FF0050"]}
-              tintColor="#FF0050"
-              progressBackgroundColor="#1A1A1A"
+        <View style={styles.profileHeader}>
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={() => pickImage(true)}
+            disabled={uploadingProfile}
+          >
+            <Image
+              source={{
+                uri:
+                  user.profileImage ||
+                  "https://i.pinimg.com/1200x/cf/a9/c1/cfa9c1d868f8ba76a23a93150516787d.jpg",
+              }}
+              style={styles.avatar}
             />
-          }
-        >
-          <View style={styles.profileHeader}>
-            <TouchableOpacity
-              style={styles.avatarContainer}
-              onPress={() => pickImage(true)}
-              disabled={uploadingProfile}
-            >
-              <Image
-                source={{
-                  uri:
-                    user.profileImage ||
-                    "https://i.pinimg.com/1200x/cf/a9/c1/cfa9c1d868f8ba76a23a93150516787d.jpg",
-                }}
-                style={styles.avatar}
-              />
-              <View style={styles.plusBadge}>
-                <Ionicons name="add" size={20} color="white" />
+            <View style={styles.plusBadge}>
+              <Ionicons name="add" size={20} color="white" />
+            </View>
+            {uploadingProfile && (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator color="white" />
               </View>
-              {uploadingProfile && (
-                <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator color="white" />
-                </View>
-              )}
-            </TouchableOpacity>
+            )}
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.statsContainer}
-              onPress={() => navigation.navigate("Matches")}
-            >
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{likesCount}</Text>
-                <Text style={styles.statLabel}>Matches</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.statsContainer}
+            onPress={() => navigation.navigate("Matches")}
+          >
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{likesCount}</Text>
+              <Text style={styles.statLabel}>Matches</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.infoContainer}>
-            <Text style={styles.username}>@{user.username}</Text>
-            <Text style={styles.bio}>{user.bio || "No bio yet"}</Text>
-            <Text style={styles.email}>{user.email}</Text>
-          </View>
+        <View style={styles.infoContainer}>
+          <Text style={styles.username}>@{user.username}</Text>
+          <Text style={styles.bio}>{user.bio || "No bio yet"}</Text>
+          <Text style={styles.email}>{user.email}</Text>
+        </View>
 
-          <View style={styles.editProfileContainer}>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => navigation.navigate("EditProfile")}
-              disabled={uploadingProfile || uploadingPosts}
-            >
-              <Text style={styles.editButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.editProfileContainer}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => navigation.navigate("EditProfile")}
+            disabled={uploadingProfile || uploadingPosts}
+          >
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.divider} />
-
+        <View style={styles.divider} />
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Your Photos</Text>
             {uploadingPosts && (
