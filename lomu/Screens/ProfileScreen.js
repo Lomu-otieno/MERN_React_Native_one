@@ -127,11 +127,6 @@ const ProfileScreen = () => {
         Alert.alert("Limit Reached", "You can upload up to 18 photos maximum.");
         return;
       }
-      // const availableSlots = 18 - images.length;
-      // if (availableSlots <= 0) {
-      //   Alert.alert("Limit Reached", `You've reached the 18 photo limit.`);
-      //   return;
-      // }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -158,9 +153,9 @@ const ProfileScreen = () => {
       const formData = new FormData();
 
       uris.forEach((uri, index) => {
-        formData.append("photos[]", {
+        formData.append("images", {
           uri,
-          name: `photo_${Date.now()}_${index}.jpg`,
+          name: `photo_${index}.jpg`,
           type: "image/jpeg",
         });
       });
@@ -173,33 +168,14 @@ const ProfileScreen = () => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
-          timeout: 30000, // 30-second timeout
         }
       );
 
-      // Standardize photo format
-      const standardizedPhotos = res.data.photos.map((photo) => ({
-        url: typeof photo === "string" ? photo : photo.url,
-        public_id:
-          typeof photo === "string"
-            ? photo.split("/").pop().split(".")[0]
-            : photo.public_id,
-      }));
-
-      setImages(standardizedPhotos);
-      Alert.alert(
-        "Success",
-        `Added ${res.data.successCount} photo(s)${res.data.failedUploads ? ` (${res.data.failedUploads.length} failed)` : ""}`
-      );
+      Alert.alert("Success", `${uris.length} photo(s) uploaded!`);
+      fetchUser(); // Refresh user data
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert(
-        "Upload Error",
-        error.response?.data?.message ||
-          (error.code === "ECONNABORTED"
-            ? "Request timed out"
-            : "Failed to upload photos")
-      );
+      Alert.alert("Error", "Failed to upload photos");
     } finally {
       setUploadingPosts(false);
     }

@@ -123,85 +123,43 @@ user_router.get("/view-profile", protect, async (req, res) => {
 user_router.post(
   "/upload-photos",
   protect,
-  upload.array("photos", 5), // max 5 files per request
+  upload.array("images", 5), // Max 5 at a time
   async (req, res) => {
     try {
-      // 1. Validate user exists
       const user = await User.findById(req.user._id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // 2. Check remaining slots before processing
       const remainingSlots = 18 - user.photos.length;
       if (remainingSlots <= 0) {
         return res.status(400).json({
-          message: "Photo limit reached (max 18)",
-          currentCount: user.photos.length,
+          message: "Maximum 18 photos reached. Delete some to upload more.",
         });
       }
 
-      // 3. Process only files that will fit
       const filesToProcess = req.files.slice(0, remainingSlots);
-      const uploadedPhotos = [];
-      const failedUploads = [];
+      const uploadedUrls = [];
 
-      // 4. Process uploads with better error handling
       for (const file of filesToProcess) {
-        try {
-          const result = await cloudinary.uploader.upload(file.path, {
-            folder: "dating-app/photos",
-            transformation: [
-              { width: 1080, height: 1080, crop: "limit" }, // Standardize size
-              { quality: "auto" }, // Optimize quality
-            ],
-          });
-
-          uploadedPhotos.push({
-            url: result.secure_url,
-            public_id: result.public_id,
-            uploadedAt: new Date(), // Track upload time
-          });
-        } catch (uploadError) {
-          console.error(`Failed to upload ${file.originalname}:`, uploadError);
-          failedUploads.push(file.originalname);
-        }
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: "user_photos",
+          transformation: { width: 1080, crop: "limit" },
+        });
+        uploadedUrls.push(result.secure_url);
       }
 
-      // 5. Update user photos if any succeeded
-      if (uploadedPhotos.length > 0) {
-        user.photos = [...user.photos, ...uploadedPhotos];
-        await user.save();
-      }
+      user.photos = [...user.photos, ...uploadedUrls];
+      await user.save();
 
-      // 6. Prepare response
-      const response = {
-        message: `Uploaded ${uploadedPhotos.length} photo(s)`,
-        successCount: uploadedPhotos.length,
+      res.status(200).json({
+        message: `${uploadedUrls.length} photo(s) uploaded`,
         photos: user.photos,
-      };
-
-      if (failedUploads.length > 0) {
-        response.failedUploads = failedUploads;
-        response.warning = `${failedUploads.length} upload(s) failed`;
-      }
-
-      res.status(200).json(response);
+        remainingSlots: 18 - user.photos.length,
+      });
     } catch (err) {
       console.error("Upload error:", err);
-
-      // More specific error messages
-      let errorMessage = "Server error during photo upload";
-      if (err.message.includes("File too large")) {
-        errorMessage = "One or more files exceed size limit";
-      } else if (err.message.includes("invalid image file")) {
-        errorMessage = "Invalid image file(s) detected";
-      }
-
-      res.status(500).json({
-        message: errorMessage,
-        error: process.env.NODE_ENV === "development" ? err.message : undefined,
-      });
+      res.status(500).json({ message: "Server error" });
     }
   }
 );
