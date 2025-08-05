@@ -10,7 +10,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: "dating_app_photos",
+    folder: "dating_app",
     allowed_formats: ["jpg", "png", "jpeg"],
   },
 });
