@@ -95,7 +95,9 @@ const MatchesScreen = () => {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.matchCard}
-            onPress={() => navigation.navigate("UserMatch", { user: item })}
+            onPress={() =>
+              navigation.navigate("UserMatch", { userId: item._id })
+            }
           >
             <Image
               source={{ uri: item.profileImage || DEFAULT_IMAGE }}
