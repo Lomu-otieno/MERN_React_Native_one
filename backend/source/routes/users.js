@@ -301,7 +301,6 @@ user_router.get("/explore", protect, async (req, res) => {
       _id: { $nin: excludedUserIds },
     };
 
-    // 👇 Default to opposite gender if no query param provided
     if (req.query.gender) {
       query.gender = req.query.gender;
     } else if (currentUser.gender === "male") {
@@ -312,7 +311,42 @@ user_router.get("/explore", protect, async (req, res) => {
 
     const users = await User.find(query).select("-password").limit(20);
 
-    res.status(200).json(users);
+    // 👇 Add age calculation
+    const calculateAge = (birthDate) => {
+      if (!birthDate) return null;
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birth.getDate())
+      ) {
+        age--;
+      }
+      return age;
+    };
+
+    const usersWithAge = users.map((user) => {
+      const age = calculateAge(user.dateOfBirth);
+      return {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        bio: user.bio,
+        gender: user.gender,
+        dateOfBirth: user.dateOfBirth,
+        age,
+        interests: user.interests,
+        location: user.location,
+        profileImage: user.profileImage,
+        likes: user.likes,
+        likesCount: user.likes.length,
+        photos: user.photos,
+      };
+    });
+
+    res.status(200).json(usersWithAge);
   } catch (err) {
     console.error("Explore error:", err);
     res.status(500).json({ message: "Server error" });
