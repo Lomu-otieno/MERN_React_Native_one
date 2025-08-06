@@ -5,15 +5,17 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   Image,
   StatusBar,
   TouchableOpacity,
+  Animated,
 } from "react-native";
 import Swiper from "react-native-deck-swiper";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { Platform } from "react-native";
+import * as Location from "expo-location";
 
 const SERVER_URL = "https://lomu-dating-backend.onrender.com";
 const { width, height } = Dimensions.get("window");
@@ -21,7 +23,52 @@ const { width, height } = Dimensions.get("window");
 const ExploreScreen = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  // const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const fadeAnim = useState(new Animated.Value(0))[0];
+
+  const getLocationAndUpdateServer = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        console.warn("Permission to access location was denied");
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      const token = await AsyncStorage.getItem("token");
+
+      await axios.put(
+        `${SERVER_URL}/api/user/location`,
+        { latitude, longitude },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (error) {
+      console.error(
+        "Location update failed:",
+        error.response?.data || error.message
+      );
+    }
+  };
+
+  const showMessage = (message) => {
+    setErrorMessage(message);
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setErrorMessage(null));
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -33,10 +80,10 @@ const ExploreScreen = () => {
       setUsers(res.data);
     } catch (err) {
       console.error("Fetch error:", err.response?.data || err.message);
-      Alert.alert("Error", "Failed to load users.");
+      showMessage("Failed to load users");
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      // setRefreshing(false);
     }
   };
 
@@ -56,15 +103,17 @@ const ExploreScreen = () => {
       );
     } catch (err) {
       console.error(`${action} error:`, err.response?.data || err.message);
+      showMessage(`Failed to ${action} user`);
     }
   };
 
   const onRefresh = () => {
-    setRefreshing(true);
+    // setRefreshing(true);
     fetchUsers();
   };
 
   useEffect(() => {
+    getLocationAndUpdateServer();
     fetchUsers();
   }, []);
 
@@ -100,6 +149,12 @@ const ExploreScreen = () => {
         translucent
       />
 
+      {errorMessage && (
+        <Animated.View style={[styles.messageContainer, { opacity: fadeAnim }]}>
+          <Text style={styles.messageText}>{errorMessage}</Text>
+        </Animated.View>
+      )}
+
       <Swiper
         cards={users}
         renderCard={(user) => (
@@ -119,7 +174,11 @@ const ExploreScreen = () => {
               </Text>
               <View style={styles.distanceContainer}>
                 <Ionicons name="location-outline" size={16} color="#FF0050" />
-                <Text style={styles.distance}>5 miles away</Text>
+                <Text style={styles.distance}>
+                  {user.distance
+                    ? `${(user.distance / 1000).toFixed(1)} km away`
+                    : "Distance unknown"}
+                </Text>
               </View>
             </View>
           </View>
@@ -307,6 +366,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 6,
+  },
+  messageContainer: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 60 : 30,
+    left: 20,
+    right: 20,
+    backgroundColor: "rgba(255, 0, 80, 0.8)",
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    alignItems: "center",
+  },
+  messageText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "500",
   },
 });
 

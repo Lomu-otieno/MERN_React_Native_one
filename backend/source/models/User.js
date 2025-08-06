@@ -38,7 +38,15 @@ const userSchema = new mongoose.Schema(
       enum: ["male", "female"],
     },
     location: {
-      type: String,
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: [0, 0],
+      },
     },
     interests: {
       type: [String],
@@ -80,6 +88,8 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.index({ location: "2dsphere" });
 
 const User = mongoose.model("User", userSchema);
 

@@ -44,7 +44,6 @@ user_router.post(
     }
   }
 );
-
 user_router.put("/update-profile", protect, async (req, res) => {
   const { bio, gender, dateOfBirth, interests, photos, location } = req.body;
 
@@ -91,7 +90,6 @@ user_router.put("/update-profile", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 user_router.get("/view-profile", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
@@ -140,7 +138,6 @@ user_router.get("/view-profile", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 user_router.post(
   "/upload-photos",
   protect,
@@ -237,7 +234,6 @@ user_router.post(
     }
   }
 );
-
 user_router.delete("/delete-photo", protect, async (req, res) => {
   try {
     const { photoIndex, photoPublicId } = req.body;
@@ -282,14 +278,15 @@ user_router.delete("/delete-photo", protect, async (req, res) => {
     });
   }
 });
-
 user_router.get("/explore", protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
 
-    if (!currentUser) {
-      return res.status(404).json({ message: "User not found" });
+    if (!currentUser || !currentUser.location?.coordinates) {
+      return res.status(400).json({ message: "User location not set" });
     }
+
+    const [userLng, userLat] = currentUser.location.coordinates;
 
     const excludedUserIds = [
       ...(currentUser.likes || []),
@@ -297,21 +294,37 @@ user_router.get("/explore", protect, async (req, res) => {
       currentUser._id,
     ];
 
-    const query = {
-      _id: { $nin: excludedUserIds },
-    };
+    const genderFilter =
+      req.query.gender ||
+      (currentUser.gender === "male"
+        ? "female"
+        : currentUser.gender === "female"
+        ? "male"
+        : undefined);
 
-    if (req.query.gender) {
-      query.gender = req.query.gender;
-    } else if (currentUser.gender === "male") {
-      query.gender = "female";
-    } else if (currentUser.gender === "female") {
-      query.gender = "male";
-    }
+    const geoQuery = [
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [userLng, userLat],
+          },
+          distanceField: "distance", // in meters
+          spherical: true,
+          maxDistance: 50000, // 50km
+          query: {
+            _id: { $nin: excludedUserIds },
+            ...(genderFilter && { gender: genderFilter }),
+          },
+        },
+      },
+      {
+        $limit: 20,
+      },
+    ];
 
-    const users = await User.find(query).select("-password").limit(20);
+    const users = await User.aggregate(geoQuery);
 
-    // 👇 Add age calculation
     const calculateAge = (birthDate) => {
       if (!birthDate) return null;
       const today = new Date();
@@ -327,26 +340,24 @@ user_router.get("/explore", protect, async (req, res) => {
       return age;
     };
 
-    const usersWithAge = users.map((user) => {
-      const age = calculateAge(user.dateOfBirth);
-      return {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        bio: user.bio,
-        gender: user.gender,
-        dateOfBirth: user.dateOfBirth,
-        age,
-        interests: user.interests,
-        location: user.location,
-        profileImage: user.profileImage,
-        likes: user.likes,
-        likesCount: user.likes.length,
-        photos: user.photos,
-      };
-    });
+    const formattedUsers = users.map((user) => ({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      bio: user.bio,
+      gender: user.gender,
+      dateOfBirth: user.dateOfBirth,
+      age: calculateAge(user.dateOfBirth),
+      interests: user.interests,
+      location: user.location,
+      profileImage: user.profileImage,
+      likes: user.likes,
+      likesCount: user.likes.length,
+      photos: user.photos,
+      distance: (user.distance / 1000).toFixed(1), // km
+    }));
 
-    res.status(200).json(usersWithAge);
+    res.status(200).json(formattedUsers);
   } catch (err) {
     console.error("Explore error:", err);
     res.status(500).json({ message: "Server error" });
@@ -396,7 +407,6 @@ user_router.post("/like/:targetUserId", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 user_router.post("/pass/:targetUserId", protect, async (req, res) => {
   const currentUserId = req.user._id;
   const targetUserId = req.params.targetUserId;
@@ -426,7 +436,6 @@ user_router.post("/pass/:targetUserId", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 user_router.get("/matches", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate(
@@ -482,6 +491,28 @@ user_router.get("/match/:id", protect, async (req, res) => {
   } catch (error) {
     console.error("Fetch match error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+user_router.put("/location", authMiddleware, async (req, res) => {
+  const { latitude, longitude } = req.body;
+
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return res.status(400).json({ message: "Invalid coordinates" });
+  }
+
+  try {
+    await User.findByIdAndUpdate(req.user.id, {
+      location: {
+        type: "Point",
+        coordinates: [longitude, latitude], // GeoJSON format: [lng, lat]
+      },
+    });
+
+    res.status(200).json({ message: "Location updated successfully" });
+  } catch (err) {
+    console.error("Error updating location:", err);
+    res.status(500).json({ message: "Failed to update location" });
   }
 });
 
