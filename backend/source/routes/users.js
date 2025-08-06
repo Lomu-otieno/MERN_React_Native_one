@@ -414,11 +414,32 @@ user_router.get("/match/:id", protect, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Function to calculate age from dateOfBirth
+    const calculateAge = (birthDate) => {
+      if (!birthDate) return null;
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+
+      // Adjust if birthday hasn't occurred yet this year
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birth.getDate())
+      ) {
+        age--;
+      }
+      return age;
+    };
+
+    const age = calculateAge(user.dateOfBirth);
+
     res.status(200).json({
       _id: user._id,
       username: user.username,
       bio: user.bio,
       dateOfBirth: user.dateOfBirth,
+      age: age, // Include calculated age
       interests: user.interests,
       location: user.location,
       profileImage: user.profileImage,
