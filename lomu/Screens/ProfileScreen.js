@@ -12,6 +12,7 @@ import {
   StatusBar,
   Platform,
   RefreshControl,
+  Animated,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -30,8 +31,33 @@ const ProfileScreen = () => {
   const [images, setImages] = useState([]);
   const [uploadingProfile, setUploadingProfile] = useState(false);
   const [uploadingPosts, setUploadingPosts] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState(null); // 'success' or 'error'
+  const fadeAnim = useState(new Animated.Value(0))[0];
 
   const navigation = useNavigation();
+
+  const showMessage = (text, type = "error") => {
+    setMessage(text);
+    setMessageType(type);
+
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setMessage(null);
+      setMessageType(null);
+    });
+  };
 
   const fetchUser = async () => {
     try {
@@ -45,8 +71,7 @@ const ProfileScreen = () => {
       setLikesCount(data?.likesCount || 0);
       setImages(data?.photos || []);
     } catch (error) {
-      console.error("Error fetching profile:", error);
-      Alert.alert("Error", "Failed to load profile.");
+      showMessage("Failed to load profile");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -56,17 +81,14 @@ const ProfileScreen = () => {
   const requestMediaPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Please enable photo library access in settings"
-      );
+      showMessage("Please enable photo library access in settings");
     }
   };
 
   const pickImage = async (isProfilePhoto = false) => {
     try {
       if (images.length >= 2 && !isProfilePhoto) {
-        Alert.alert("Limit Reached", "You can only upload one photo.");
+        showMessage("You can only upload one photo");
         return;
       }
 
@@ -85,7 +107,7 @@ const ProfileScreen = () => {
         }
       }
     } catch (error) {
-      console.error("Image picker error:", error);
+      // console.error("Image picker error:", error);
       Alert.alert("Error", "Failed to pick image");
     }
   };
@@ -113,9 +135,9 @@ const ProfileScreen = () => {
       );
 
       setUser((prev) => ({ ...prev, profileImage: res.data.url }));
+      showMessage("Profile photo updated successfully", "success");
     } catch (error) {
-      console.error("Upload error:", error);
-      Alert.alert("Error", "Failed to upload profile photo");
+      showMessage("Failed to upload profile photo");
     } finally {
       setUploadingProfile(false);
     }
@@ -136,8 +158,7 @@ const ProfileScreen = () => {
         await uploadPhotos(result.assets.map((asset) => asset.uri));
       }
     } catch (error) {
-      console.error("Image picker error:", error);
-      Alert.alert("Error", "Failed to pick images");
+      showMessage("Failed to pick images");
     }
   };
 
@@ -166,11 +187,10 @@ const ProfileScreen = () => {
         }
       );
 
-      Alert.alert("Success", `${uris.length} photo(s) uploaded!`);
+      showMessage(`${uris.length} photo(s) uploaded!`);
       fetchUser(); // Refresh user data
     } catch (error) {
-      console.error("Upload error:", error);
-      Alert.alert("Error", "Failed to upload photos");
+      showMessage("Failed to upload photos");
     } finally {
       setUploadingPosts(false);
     }
@@ -202,13 +222,10 @@ const ProfileScreen = () => {
       // Update local state immediately for better UX
       const updatedImages = [...images];
       updatedImages.splice(index, 1);
+      showMessage("Photo deleted successfully", "success");
       setImages(updatedImages);
     } catch (error) {
-      console.error("Delete error:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || "Failed to delete photo"
-      );
+      showMessage(error.response?.data?.message || "Failed to delete photo");
     } finally {
       setUploadingPosts(false);
     }
@@ -228,7 +245,7 @@ const ProfileScreen = () => {
       await AsyncStorage.removeItem("token");
       navigation.replace("Login");
     } catch (error) {
-      Alert.alert("Error", "Failed to log out.");
+      showMessage("Failed to log out");
     }
   };
 
@@ -252,15 +269,6 @@ const ProfileScreen = () => {
     <LinearGradient
       colors={["#010101", "#131313", "#212121"]}
       style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={["#FF0050"]}
-          tintColor="#FF0050"
-          progressBackgroundColor="#1A1A1A"
-        />
-      }
     >
       <SafeAreaView style={styles.safeArea}>
         <TouchableOpacity
@@ -330,7 +338,18 @@ const ProfileScreen = () => {
         </View>
 
         <View style={styles.divider} />
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#FF0050"]}
+              tintColor="#FF0050"
+              progressBackgroundColor="#1A1A1A"
+            />
+          }
+        >
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Your Photos</Text>
             {uploadingPosts && (
@@ -367,6 +386,20 @@ const ProfileScreen = () => {
         translucent
         backgroundColor="transparent"
       />
+      {message && (
+        <Animated.View
+          style={[
+            styles.messageContainer,
+            {
+              opacity: fadeAnim,
+              backgroundColor: "rgba(0, 0, 0, 0.1)",
+              borderColor: messageType === "success" ? "#000" : "#FF0050",
+            },
+          ]}
+        >
+          <Text style={styles.messageText}>{message}</Text>
+        </Animated.View>
+      )}
     </LinearGradient>
   );
 };
@@ -574,5 +607,21 @@ const styles = StyleSheet.create({
   errorText: {
     color: "white",
     fontSize: 16,
+  },
+  messageContainer: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  },
+  messageText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "500",
   },
 });
