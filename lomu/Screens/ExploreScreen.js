@@ -27,32 +27,6 @@ const ExploreScreen = () => {
   const [errorMessage, setErrorMessage] = useState(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
-  const getLocationAndUpdateServer = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        console.warn("Permission to access location was denied");
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = location.coords;
-
-      const token = await AsyncStorage.getItem("token");
-
-      await axios.put(
-        `${SERVER_URL}/api/user/location`,
-        { latitude, longitude },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    } catch (error) {
-      console.error(
-        "Location update failed:",
-        error.response?.data || error.message
-      );
-    }
-  };
-
   const showMessage = (message) => {
     setErrorMessage(message);
     Animated.sequence([
@@ -87,6 +61,34 @@ const ExploreScreen = () => {
     }
   };
 
+  const updateLocation = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token"); // Get the token first
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        console.warn("Permission to access location was denied");
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      await axios.put(
+        `${SERVER_URL}/api/users/location`,
+        { latitude, longitude },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      console.log("Location updated");
+    } catch (error) {
+      console.error(
+        "Location update failed:",
+        error.response?.data || error.message
+      );
+    }
+  };
+
   const handleAction = async (userId, action) => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -113,7 +115,7 @@ const ExploreScreen = () => {
   };
 
   useEffect(() => {
-    getLocationAndUpdateServer();
+    updateLocation();
     fetchUsers();
   }, []);
 
