@@ -385,5 +385,28 @@ user_router.get("/matches", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+user_router.get("/match/:id", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      _id: user._id,
+      username: user.username,
+      bio: user.bio,
+      dateOfBirth: user.dateOfBirth,
+      interests: user.interests,
+      location: user.location,
+      profileImage: user.profileImage,
+      photos: user.photos,
+    });
+  } catch (error) {
+    console.error("Fetch match error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 export default user_router;

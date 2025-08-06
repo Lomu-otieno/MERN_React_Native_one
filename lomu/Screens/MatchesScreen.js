@@ -77,16 +77,7 @@ const MatchesScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <View style={styles.header}>
-        {/* <Text style={styles.headerTitle}>Your Matches</Text> */}
-        {/* <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
-          <Ionicons
-            name="refresh"
-            size={24}
-            color={refreshing ? "#666" : "#FF0050"}
-          />
-        </TouchableOpacity> */}
-      </View>
+      <View style={styles.header}></View>
 
       <FlatList
         data={matches}
@@ -166,7 +157,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: "#333",
     marginRight: 16,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: "#FF0050",
   },
   info: {
