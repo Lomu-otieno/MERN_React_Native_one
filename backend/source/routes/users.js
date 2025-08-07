@@ -89,7 +89,7 @@ user_router.put("/update-profile", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-router.post("/set-gender", async (req, res) => {
+user_router.post("/set-gender", async (req, res) => {
   try {
     const { email, gender } = req.body;
 
