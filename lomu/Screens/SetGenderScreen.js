@@ -12,7 +12,7 @@ import { Picker } from "@react-native-picker/picker";
 import { useNavigation } from "@react-navigation/native";
 import { BACKEND_URI } from "@env";
 
-const GENDER_UPDATE_URL = `${BACKEND_URI}/api/users/gender`;
+const GENDER_UPDATE_URL = `${BACKEND_URI}/api/users/set-gender`;
 
 const SetGenderScreen = () => {
   const navigation = useNavigation();
@@ -20,12 +20,16 @@ const SetGenderScreen = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
-  // Check if user already has gender set
+  // Check if gender already set
   useEffect(() => {
     const checkGender = async () => {
-      const userGender = await AsyncStorage.getItem("userGender");
-      if (userGender) {
-        navigation.replace("Main");
+      try {
+        const userGender = await AsyncStorage.getItem("userGender");
+        if (userGender) {
+          navigation.replace("Main");
+        }
+      } catch (error) {
+        console.error("Gender check error:", error);
       }
     };
     checkGender();
@@ -42,8 +46,8 @@ const SetGenderScreen = () => {
       const userId = await AsyncStorage.getItem("userId");
 
       if (!userId) {
-        setMessage({ text: "User not found", type: "error" });
-        return;
+        setMessage({ text: "User session expired", type: "error" });
+        return navigation.replace("Auth");
       }
 
       const response = await axios.post(GENDER_UPDATE_URL, {
@@ -54,13 +58,30 @@ const SetGenderScreen = () => {
       // Store gender locally for immediate access
       await AsyncStorage.setItem("userGender", gender);
 
-      setMessage({ text: "Gender updated successfully", type: "success" });
+      setMessage({
+        text: "Profile setup complete!",
+        type: "success",
+      });
+
       setTimeout(() => navigation.replace("Main"), 1500);
     } catch (error) {
-      console.error("Gender update error:", error);
-      const errorMsg =
-        error.response?.data?.message || "Failed to update gender";
-      setMessage({ text: errorMsg, type: "error" });
+      let errorMsg = "Failed to update gender";
+
+      // Handle specific error codes
+      switch (error.response?.data?.code) {
+        case "GENDER_ALREADY_SET":
+          errorMsg = "Gender already set";
+          navigation.replace("Main");
+          break;
+        case "INVALID_GENDER":
+          errorMsg = "Please select a valid gender";
+          break;
+      }
+
+      setMessage({
+        text: errorMsg,
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -78,9 +99,9 @@ const SetGenderScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Select Your Gender</Text>
+      <Text style={styles.title}>Complete Your Profile</Text>
       <Text style={styles.subtitle}>
-        This helps us show you relevant matches
+        Select your gender to get better matches
       </Text>
 
       {message.text ? (
@@ -106,13 +127,14 @@ const SetGenderScreen = () => {
           <Picker.Item label="Select gender" value="" color="#999" />
           <Picker.Item label="Male" value="male" />
           <Picker.Item label="Female" value="female" />
+          <Picker.Item label="Other" value="other" />
         </Picker>
       </View>
 
       <TouchableOpacity
         onPress={handleSubmit}
-        style={styles.button}
-        disabled={loading || !gender}
+        style={[styles.button, (!gender || loading) && styles.buttonDisabled]}
+        disabled={!gender || loading}
       >
         {loading ? (
           <ActivityIndicator color="#fff" />
@@ -127,7 +149,7 @@ const SetGenderScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 25,
     backgroundColor: "#fff",
     justifyContent: "center",
   },
@@ -135,7 +157,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 8,
     color: "#333",
   },
   subtitle: {
@@ -147,20 +169,18 @@ const styles = StyleSheet.create({
   pickerWrapper: {
     borderWidth: 1,
     borderColor: "#ddd",
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 30,
     overflow: "hidden",
   },
   picker: {
     height: 50,
-    width: "100%",
   },
   button: {
     backgroundColor: "#FF0050",
-    padding: 15,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 10,
     alignItems: "center",
-    opacity: 1,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -184,6 +204,7 @@ const styles = StyleSheet.create({
   messageText: {
     color: "#fff",
     textAlign: "center",
+    fontWeight: "500",
   },
 });
 

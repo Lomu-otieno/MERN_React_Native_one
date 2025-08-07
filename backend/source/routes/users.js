@@ -89,54 +89,37 @@ user_router.put("/update-profile", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-user_router.post("/set-gender", async (req, res) => {
+router.post("/set-gender", async (req, res) => {
   try {
-    const { userId, gender } = req.body;
+    const { email, gender } = req.body;
 
-    // Validation
-    if (!userId || !gender) {
-      return res.status(400).json({
-        message: "User ID and gender are required",
-        code: "MISSING_FIELDS",
-      });
+    if (!email || !gender) {
+      return res.status(400).json({ message: "Email and gender are required" });
     }
 
-    if (!["male", "female", "other"].includes(gender)) {
-      // Added "other" for inclusivity
-      return res.status(400).json({
-        message: "Invalid gender value",
-        code: "INVALID_GENDER",
-      });
+    if (!["male", "female"].includes(gender)) {
+      return res
+        .status(400)
+        .json({ message: "Gender must be 'male' or 'female'" });
     }
 
-    // Atomic update to prevent race conditions
-    const result = await User.updateOne(
-      {
-        _id: userId,
-        gender: { $exists: false }, // Only update if gender not set
-      },
-      { $set: { gender } }
+    const user = await User.findOneAndUpdate(
+      { email },
+      { gender },
+      { new: true }
     );
 
-    if (result.matchedCount === 0) {
-      return res.status(409).json({
-        message: "Gender already set or user not found",
-        code: "GENDER_ALREADY_SET",
-      });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({
-      success: true,
-      gender,
-    });
-  } catch (error) {
-    console.error("Gender update error:", error);
-    res.status(500).json({
-      message: "Internal server error",
-      code: "SERVER_ERROR",
-    });
+    res.status(200).json({ message: "Gender updated successfully", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 });
+
 user_router.post(
   "/upload-photos",
   protect,
