@@ -12,7 +12,7 @@ const connectDB = async () => {
 
     // Log all indexes
     const indexes = await collection.indexes();
-    console.log(indexes);
+    // console.log(indexes);
   } catch (error) {
     console.log("Error Connecting to the Database", error);
     process.exit(1);
