@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,17 @@ const SetGenderScreen = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
+  // Check if user already has gender set
+  useEffect(() => {
+    const checkGender = async () => {
+      const userGender = await AsyncStorage.getItem("userGender");
+      if (userGender) {
+        navigation.replace("Main");
+      }
+    };
+    checkGender();
+  }, []);
+
   const handleSubmit = async () => {
     if (!gender) {
       setMessage({ text: "Please select your gender", type: "error" });
@@ -29,30 +40,34 @@ const SetGenderScreen = () => {
     setLoading(true);
     try {
       const userId = await AsyncStorage.getItem("userId");
-      console.log("Fetched userId from storage:", userId);
+
+      if (!userId) {
+        setMessage({ text: "User not found", type: "error" });
+        return;
+      }
 
       const response = await axios.post(GENDER_UPDATE_URL, {
         userId,
         gender,
       });
 
-      console.log("Gender update response:", response.data);
+      // Store gender locally for immediate access
+      await AsyncStorage.setItem("userGender", gender);
 
       setMessage({ text: "Gender updated successfully", type: "success" });
       setTimeout(() => navigation.replace("Main"), 1500);
     } catch (error) {
-      console.error("Gender update error:", error.response?.data || error);
-      setMessage({
-        text: error.response?.data?.message || "Something went wrong",
-        type: "error",
-      });
+      console.error("Gender update error:", error);
+      const errorMsg =
+        error.response?.data?.message || "Failed to update gender";
+      setMessage({ text: errorMsg, type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
   // Auto-clear message after 3 seconds
-  React.useEffect(() => {
+  useEffect(() => {
     if (message.text) {
       const timer = setTimeout(() => {
         setMessage({ text: "", type: "" });
@@ -64,6 +79,9 @@ const SetGenderScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Select Your Gender</Text>
+      <Text style={styles.subtitle}>
+        This helps us show you relevant matches
+      </Text>
 
       {message.text ? (
         <View
@@ -81,16 +99,21 @@ const SetGenderScreen = () => {
       <View style={styles.pickerWrapper}>
         <Picker
           selectedValue={gender}
-          onValueChange={(itemValue) => setGender(itemValue)}
+          onValueChange={setGender}
           style={styles.picker}
+          dropdownIconColor="#FF0050"
         >
-          <Picker.Item label="Select gender" value="" />
-          <Picker.Item label="male" value="male" />
-          <Picker.Item label="female" value="female" />
+          <Picker.Item label="Select gender" value="" color="#999" />
+          <Picker.Item label="Male" value="male" />
+          <Picker.Item label="Female" value="female" />
         </Picker>
       </View>
 
-      <TouchableOpacity onPress={handleSubmit} style={styles.button}>
+      <TouchableOpacity
+        onPress={handleSubmit}
+        style={styles.button}
+        disabled={loading || !gender}
+      >
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
@@ -111,33 +134,45 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 30,
     textAlign: "center",
+    marginBottom: 10,
+    color: "#333",
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 30,
+    color: "#666",
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
+    borderColor: "#ddd",
+    borderRadius: 8,
     marginBottom: 30,
+    overflow: "hidden",
   },
   picker: {
     height: 50,
+    width: "100%",
   },
   button: {
     backgroundColor: "#FF0050",
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 8,
     alignItems: "center",
+    opacity: 1,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
   },
-  // Message styles
   messageContainer: {
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 8,
     marginBottom: 20,
   },
   successMessage: {
