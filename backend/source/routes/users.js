@@ -1,5 +1,5 @@
 import express from "express";
-import protect from "../middleware/protect.js";
+import protect from "../middleware/authMiddleware.js";
 import User from "../models/User.js";
 import { storage } from "../lib/cloudinary.js";
 import { cloudinary } from "../lib/cloudinary.js";
