@@ -175,14 +175,7 @@ const ExploreScreen = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
         <View style={styles.logoContainer}>
-          <Image
-            source={{
-              uri: "https://i.pinimg.com/736x/10/53/15/105315c12a8fde9572339c5e00786c98.jpg",
-            }}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.appName}>Lomu</Text>
+          <Text style={styles.appName}>lomu</Text>
         </View>
         <View style={styles.headerIcons}>
           <Ionicons
@@ -191,12 +184,12 @@ const ExploreScreen = () => {
             color="white"
             style={styles.icon}
           />
-          <Ionicons
+          {/* <Ionicons
             name="chatbubble-ellipses-outline"
             size={24}
             color="white"
             style={styles.icon}
-          />
+          /> */}
         </View>
       </View>
       <View style={styles.container}>
@@ -334,7 +327,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 15,
     paddingVertical: 10,
-    borderBottomWidth: 0.5,
     borderBottomColor: "#dbdbdb",
     backgroundColor: "#000",
   },

@@ -58,11 +58,6 @@ const LoginScreen = () => {
   if (loading) {
     return (
       <View style={styles.splashContainer}>
-        <Image
-          source={require("../assets/splash_lomu.png")} // update path if different
-          style={styles.splashImage}
-          resizeMode="contain"
-        />
         <ActivityIndicator
           size="large"
           color="#E91E63"
@@ -173,11 +168,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  splashImage: {
-    width: 250,
-    height: 250,
-    tintColor: "#FF0050", // Optional: tint your splash image
-  },
+
   // Instagram-like header styles
   headerContainer: {
     flexDirection: "row",

@@ -5,13 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ScrollView,
   Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { Picker } from "@react-native-picker/picker"; // <- Picker for dropdown
+import { Picker } from "@react-native-picker/picker";
 import { BACKEND_URI } from "@env";
 
 const SERVER_URL = `${BACKEND_URI}`;
@@ -22,7 +21,7 @@ const EditProfileScreen = ({ navigation }) => {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [interests, setInterests] = useState("");
   const [location, setLocation] = useState("");
-
+  const [message, setMessage] = useState({ text: "", type: "" }); // Added message state
   const [genderLocked, setGenderLocked] = useState(false);
   const [dobLocked, setDobLocked] = useState(false);
 
@@ -31,7 +30,6 @@ const EditProfileScreen = ({ navigation }) => {
       try {
         const token = await AsyncStorage.getItem("token");
 
-        // Fetch profile
         const res = await axios.get(`${SERVER_URL}/api/users/view-profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -48,9 +46,9 @@ const EditProfileScreen = ({ navigation }) => {
         if (dateOfBirth) setDobLocked(true);
       } catch (err) {
         console.error("Error loading profile:", err);
+        setMessage({ text: "Failed to load profile", type: "error" });
       }
 
-      // Fetch and update location
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
         const loc = await Location.getCurrentPositionAsync({});
@@ -71,6 +69,7 @@ const EditProfileScreen = ({ navigation }) => {
           setLocation(locationRes.data.locationName);
         } catch (err) {
           console.error("Location update failed:", err.message);
+          setMessage({ text: "Failed to update location", type: "error" });
         }
       }
     };
@@ -94,11 +93,16 @@ const EditProfileScreen = ({ navigation }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      Alert.alert("Success", "Profile updated successfully");
-      navigation.goBack();
+      setMessage({ text: "Profile updated successfully", type: "success" });
+      setTimeout(() => {
+        navigation.goBack();
+      }, 1500);
     } catch (error) {
       console.error("Update error:", error.response?.data || error.message);
-      Alert.alert("Error", "Failed to update profile");
+      setMessage({
+        text: error.response?.data?.message || "Failed to update profile",
+        type: "error",
+      });
     }
   };
 
@@ -120,11 +124,23 @@ const EditProfileScreen = ({ navigation }) => {
         "Location update failed",
         err.response?.data || err.message
       );
+      setMessage({ text: "Failed to update location", type: "error" });
     }
   };
 
+  // Auto-clear message after 3 seconds
+  useEffect(() => {
+    if (message.text) {
+      const timer = setTimeout(() => {
+        setMessage({ text: "", type: "" });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Message display */}
       <Text style={styles.label}>Bio</Text>
       <TextInput
         value={bio}
@@ -177,6 +193,18 @@ const EditProfileScreen = ({ navigation }) => {
       <TouchableOpacity style={styles.button} onPress={handleUpdate}>
         <Text style={styles.buttonText}>Save Changes</Text>
       </TouchableOpacity>
+      {message.text ? (
+        <View
+          style={[
+            styles.messageContainer,
+            message.type === "success"
+              ? styles.successMessage
+              : styles.errorMessage,
+          ]}
+        >
+          <Text style={styles.messageText}>{message.text}</Text>
+        </View>
+      ) : null}
     </ScrollView>
   );
 };
@@ -228,6 +256,22 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+  // Message styles
+  messageContainer: {
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  successMessage: {
+    backgroundColor: "#000",
+  },
+  errorMessage: {
+    backgroundColor: "#000",
+  },
+  messageText: {
+    color: "#fff",
+    textAlign: "center",
   },
 });
 
