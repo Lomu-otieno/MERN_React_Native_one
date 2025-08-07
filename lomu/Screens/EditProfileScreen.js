@@ -12,8 +12,9 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { Picker } from "@react-native-picker/picker"; // <- Picker for dropdown
+import { BACKEND_URI } from "@env";
 
-const SERVER_URL = "https://lomu-dating-backend.onrender.com";
+const SERVER_URL = `${BACKEND_URI}`;
 
 const EditProfileScreen = ({ navigation }) => {
   const [bio, setBio] = useState("");

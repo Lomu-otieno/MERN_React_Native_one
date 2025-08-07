@@ -20,8 +20,9 @@ import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { BACKEND_URI } from "@env";
 
-const SERVER_URL = "https://lomu-dating-backend.onrender.com";
+const SERVER_URL = `${BACKEND_URI}`;
 
 const ProfileScreen = () => {
   const [user, setUser] = useState(null);

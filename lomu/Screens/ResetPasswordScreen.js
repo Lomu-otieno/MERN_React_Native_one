@@ -9,9 +9,9 @@ import {
 } from "react-native";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
+import { BACKEND_URI } from "@env";
 
-const SERVER_URL =
-  "https://lomu-dating-backend.onrender.com/api/auth/reset-password";
+const SERVER_URL = `${BACKEND_URI}/api/auth/reset-password`;
 
 const ResetPasswordScreen = () => {
   const navigation = useNavigation();

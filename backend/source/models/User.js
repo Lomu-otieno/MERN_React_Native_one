@@ -88,6 +88,9 @@ const userSchema = new mongoose.Schema(
         default: [],
       },
     ],
+    pushTokens: {
+      type: String,
+    },
     resetPasswordToken: String,
     resetPasswordExpires: Date,
   },

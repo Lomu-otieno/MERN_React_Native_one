@@ -17,9 +17,10 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { BACKEND_URI } from "@env";
 
-const SERVER_URL = "https://lomu-dating-backend.onrender.com";
-const DEFAULT_IMAGE = "https://i.imgur.com/5WzFNgi.jpg";
+const SERVER_URL = `${BACKEND_URI}`;
+const DEFAULT_IMAGE = "";
 
 const MatchesScreen = () => {
   const navigation = useNavigation();

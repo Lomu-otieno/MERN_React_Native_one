@@ -9,9 +9,9 @@ import {
 } from "react-native";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
+import { BACKEND_URI } from "@env";
 
-const REGISTER_URL =
-  "https://lomu-dating-backend.onrender.com/api/auth/register";
+const REGISTER_URL = `${BACKEND_URI}/api/auth/register`;
 
 const RegisterScreen = () => {
   const navigation = useNavigation();

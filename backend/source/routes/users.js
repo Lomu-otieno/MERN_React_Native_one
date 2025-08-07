@@ -251,27 +251,29 @@ user_router.post("/like/:targetUserId", protect, async (req, res) => {
 
     currentUser.likes.push(targetUserId);
 
-    // Check if target user also liked current user → MATCH
-    const isMatch = targetUser.likes.includes(currentUserId);
+    let isMatch = false;
 
-    if (isMatch) {
+    if (targetUser.likes.includes(currentUserId)) {
+      // It's a match!
       currentUser.matches.push(targetUserId);
       targetUser.matches.push(currentUserId);
+      isMatch = true;
 
-      await currentUser.save();
       await targetUser.save();
-
-      return res.status(200).json({ message: "It's a match!", match: true });
     }
 
     await currentUser.save();
 
-    res.status(200).json({ message: "User liked", match: false });
+    res.status(200).json({
+      message: isMatch ? "It's a match!" : "User liked",
+      match: isMatch,
+    });
   } catch (error) {
     console.error("Like error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 user_router.post("/pass/:targetUserId", protect, async (req, res) => {
   const currentUserId = req.user._id;
   const targetUserId = req.params.targetUserId;
@@ -516,5 +518,17 @@ user_router.get("/explore", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+user_router.put("/push-token", protect, async (req, res) => {
+  const { pushToken } = req.body;
+  if (!pushToken)
+    return res.status(400).json({ message: "Push token required" });
 
+  try {
+    await User.findByIdAndUpdate(req.user.id, { pushToken });
+    res.status(200).json({ message: "Push token saved" });
+  } catch (err) {
+    console.error("Push token error:", err);
+    res.status(500).json({ message: "Failed to save token" });
+  }
+});
 export default user_router;

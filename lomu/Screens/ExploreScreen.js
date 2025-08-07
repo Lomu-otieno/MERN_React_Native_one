@@ -17,8 +17,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BACKEND_URI } from "@env";
 
-const SERVER_URL = "https://lomu-dating-backend.onrender.com";
+const SERVER_URL = `${BACKEND_URI}`;
 const { width, height } = Dimensions.get("window");
 
 const ExploreScreen = () => {

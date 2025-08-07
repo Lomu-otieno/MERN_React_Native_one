@@ -13,8 +13,9 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { BACKEND_URI } from "@env";
 
-const SERVER_URL = "https://lomu-dating-backend.onrender.com";
+const SERVER_URL = `${BACKEND_URI}`;
 
 const UserMatch = ({ route, navigation }) => {
   const { userId } = route.params;
