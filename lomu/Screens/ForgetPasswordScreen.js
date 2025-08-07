@@ -51,6 +51,7 @@ const ForgotPasswordScreen = () => {
       <Text style={styles.title}>Forgot Password</Text>
       <TextInput
         placeholder="Enter your email"
+        placeholderTextColor="#fff"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -74,9 +75,9 @@ const ForgotPasswordScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    justifyContent: "center",
+    backgroundColor: "#121212", // Dark background
     paddingHorizontal: 24,
+    justifyContent: "center",
   },
   title: {
     fontSize: 28,
@@ -87,19 +88,26 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
+    borderColor: "#333",
+    borderRadius: 12,
     padding: 14,
+    marginBottom: 16,
     fontSize: 16,
-    marginBottom: 20,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#1E1E1E",
+    color: "#FFFFFF",
+    placeholderTextColor: "#666",
   },
   button: {
-    backgroundColor: "#E91E63",
+    backgroundColor: "#FF0050",
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: "center",
-    marginBottom: 20,
+    marginTop: 12,
+    shadowColor: "#FF0050",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonText: {
     color: "#fff",
@@ -107,10 +115,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   link: {
-    color: "#E91E63",
+    color: "#FF0050",
     textAlign: "center",
+    marginTop: 16,
     textDecorationLine: "underline",
-    marginTop: 10,
   },
 });
 

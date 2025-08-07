@@ -10,7 +10,8 @@ import {
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 
-const REGISTER_URL = "https://lomu-dating-backend.onrender.com/api/auth/register";
+const REGISTER_URL =
+  "https://lomu-dating-backend.onrender.com/api/auth/register";
 
 const RegisterScreen = () => {
   const navigation = useNavigation();
@@ -42,8 +43,14 @@ const RegisterScreen = () => {
       Alert.alert("Success", "Account created! Please log in.");
       navigation.navigate("Login");
     } catch (error) {
-      console.error("Registration error:", error.response?.data || error.message);
-      Alert.alert("Registration Failed", error.response?.data?.message || "Something went wrong");
+      console.error(
+        "Registration error:",
+        error.response?.data || error.message
+      );
+      Alert.alert(
+        "Registration Failed",
+        error.response?.data?.message || "Something went wrong"
+      );
     } finally {
       setLoading(false);
     }
@@ -55,6 +62,7 @@ const RegisterScreen = () => {
 
       <TextInput
         placeholder="Username"
+        placeholderTextColor="#fff"
         autoCapitalize="none"
         value={username}
         onChangeText={setUsername}
@@ -63,6 +71,7 @@ const RegisterScreen = () => {
 
       <TextInput
         placeholder="Email"
+        placeholderTextColor="#fff"
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
@@ -72,6 +81,7 @@ const RegisterScreen = () => {
 
       <TextInput
         placeholder="Password"
+        placeholderTextColor="#fff"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -94,7 +104,7 @@ const RegisterScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#121212", // Dark background
     paddingHorizontal: 24,
     justifyContent: "center",
   },
@@ -103,34 +113,86 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     marginBottom: 32,
-    color: "#E91E63",
+    color: "#FF0050", // Romantic accent color
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: "#333", // Darker border
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     fontSize: 16,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#1E1E1E", // Dark input background
+    color: "#FFFFFF", // White text
+    placeholderTextColor: "#666", // Placeholder color
   },
   button: {
-    backgroundColor: "#E91E63",
+    backgroundColor: "#FF0050", // Romantic pink/red
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 12,
+    shadowColor: "#FF0050", // Glow effect
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "600",
     fontSize: 16,
   },
   link: {
-    color: "#E91E63",
+    color: "#FF0050",
     textAlign: "center",
     marginTop: 16,
     textDecorationLine: "underline",
+  },
+  splashContainer: {
+    flex: 1,
+    backgroundColor: "#121212", // Dark background
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  splashImage: {
+    width: 250,
+    height: 250,
+    tintColor: "#FF0050", // Optional: tint your splash image
+  },
+  // Instagram-like header styles
+  headerContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#333",
+    backgroundColor: "#121212",
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  appName: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  headerIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  icon: {
+    marginLeft: 20,
+    color: "#FFFFFF", // White icons
   },
 });
 

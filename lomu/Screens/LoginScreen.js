@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -51,12 +53,31 @@ const LoginScreen = () => {
     }
   };
 
+  // 👇 Splash screen during login
+  if (loading) {
+    return (
+      <View style={styles.splashContainer}>
+        <Image
+          source={require("../assets/splash_lomu.png")} // update path if different
+          style={styles.splashImage}
+          resizeMode="contain"
+        />
+        <ActivityIndicator
+          size="large"
+          color="#E91E63"
+          style={{ marginTop: 20 }}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login</Text>
 
       <TextInput
         placeholder="Username"
+        placeholderTextColor="#fff"
         autoCapitalize="none"
         value={username}
         onChangeText={setUsername}
@@ -65,6 +86,7 @@ const LoginScreen = () => {
 
       <TextInput
         placeholder="Email"
+        placeholderTextColor="#fff"
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
@@ -74,6 +96,7 @@ const LoginScreen = () => {
 
       <TextInput
         placeholder="Password"
+        placeholderTextColor="#fff"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -81,9 +104,7 @@ const LoginScreen = () => {
       />
 
       <TouchableOpacity onPress={handleLogin} style={styles.button}>
-        <Text style={styles.buttonText}>
-          {loading ? "Logging in..." : "Login"}
-        </Text>
+        <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate("Register")}>
@@ -100,7 +121,7 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#121212", // Dark background
     paddingHorizontal: 24,
     justifyContent: "center",
   },
@@ -109,34 +130,86 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     marginBottom: 32,
-    color: "#E91E63",
+    color: "#FF0050", // Romantic accent color
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: "#333", // Darker border
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     fontSize: 16,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#1E1E1E", // Dark input background
+    color: "#FFFFFF", // White text
+    placeholderTextColor: "#fff", // Placeholder color
   },
   button: {
-    backgroundColor: "#E91E63",
+    backgroundColor: "#FF0050", // Romantic pink/red
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 12,
+    shadowColor: "#FF0050", // Glow effect
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "600",
     fontSize: 16,
   },
   link: {
-    color: "#E91E63",
+    color: "#FF0050",
     textAlign: "center",
     marginTop: 16,
     textDecorationLine: "underline",
+  },
+  splashContainer: {
+    flex: 1,
+    backgroundColor: "#121212", // Dark background
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  splashImage: {
+    width: 250,
+    height: 250,
+    tintColor: "#FF0050", // Optional: tint your splash image
+  },
+  // Instagram-like header styles
+  headerContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#333", // Darker border
+    backgroundColor: "#121212", // Dark background
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  appName: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  headerIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  icon: {
+    marginLeft: 20,
+    color: "#FFFFFF", // White icons
   },
 });
 
