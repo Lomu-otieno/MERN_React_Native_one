@@ -128,8 +128,8 @@ const EditProfileScreen = ({ navigation }) => {
       <Text style={styles.label}>Location</Text>
       <TextInput
         value={location}
-        onChangeText={setLocation}
-        style={styles.input}
+        editable={false}
+        style={[styles.input, styles.disabledInput]}
       />
 
       <TouchableOpacity style={styles.button} onPress={handleUpdate}>

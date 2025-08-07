@@ -90,59 +90,6 @@ user_router.put("/update-profile", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-user_router.get("/view-profile", protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select("-password");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Fetch location by userId
-    const locationDoc = await Location.findOne({ userId: req.user._id });
-
-    let locationName = "Unknown";
-    if (locationDoc && locationDoc.name) {
-      locationName = locationDoc.name;
-    }
-
-    const calculateAge = (birthDate) => {
-      if (!birthDate) return null;
-      const today = new Date();
-      const birth = new Date(birthDate);
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      if (
-        monthDiff < 0 ||
-        (monthDiff === 0 && today.getDate() < birth.getDate())
-      ) {
-        age--;
-      }
-      return age;
-    };
-
-    const age = calculateAge(user.dateOfBirth);
-
-    res.status(200).json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      bio: user.bio,
-      gender: user.gender,
-      dateOfBirth: user.dateOfBirth,
-      age,
-      interests: user.interests,
-      location: locationName, // This is now fetched from coordinates
-      profileImage: user.profileImage,
-      likes: user.likes,
-      likesCount: user.likes.length,
-      photos: user.photos,
-    });
-  } catch (error) {
-    console.error("View profile error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
 user_router.post(
   "/upload-photos",
   protect,
@@ -431,6 +378,51 @@ user_router.put("/location", protect, async (req, res) => {
   } catch (err) {
     console.error("Error updating location:", err);
     res.status(500).json({ message: "Failed to update location" });
+  }
+});
+user_router.get("/view-profile", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const calculateAge = (birthDate) => {
+      if (!birthDate) return null;
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birth.getDate())
+      ) {
+        age--;
+      }
+      return age;
+    };
+
+    const age = calculateAge(user.dateOfBirth);
+
+    res.status(200).json({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      bio: user.bio,
+      gender: user.gender,
+      dateOfBirth: user.dateOfBirth,
+      age,
+      interests: user.interests,
+      location: user.location, // Return whatever you store here
+      profileImage: user.profileImage,
+      likes: user.likes,
+      likesCount: user.likes.length,
+      photos: user.photos,
+    });
+  } catch (error) {
+    console.error("View profile error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 user_router.get("/explore", protect, async (req, res) => {
