@@ -89,44 +89,52 @@ user_router.put("/update-profile", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-user_router.post("/gender", async (req, res) => {
+user_router.post("/set-gender", async (req, res) => {
   try {
     const { userId, gender } = req.body;
 
+    // Validation
     if (!userId || !gender) {
-      return res
-        .status(400)
-        .json({ message: "User ID and gender are required" });
+      return res.status(400).json({
+        message: "User ID and gender are required",
+        code: "MISSING_FIELDS",
+      });
     }
 
-    if (!["male", "female"].includes(gender)) {
-      return res.status(400).json({ message: "Invalid gender value" });
+    if (!["male", "female", "other"].includes(gender)) {
+      // Added "other" for inclusivity
+      return res.status(400).json({
+        message: "Invalid gender value",
+        code: "INVALID_GENDER",
+      });
     }
 
-    // Check if user exists and gender isn't already set
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.gender) {
-      return res.status(400).json({ message: "Gender already set" });
-    }
-
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { gender },
-      { new: true }
+    // Atomic update to prevent race conditions
+    const result = await User.updateOne(
+      {
+        _id: userId,
+        gender: { $exists: false }, // Only update if gender not set
+      },
+      { $set: { gender } }
     );
 
+    if (result.matchedCount === 0) {
+      return res.status(409).json({
+        message: "Gender already set or user not found",
+        code: "GENDER_ALREADY_SET",
+      });
+    }
+
     res.status(200).json({
-      message: "Gender updated successfully",
-      gender: updatedUser.gender,
+      success: true,
+      gender,
     });
   } catch (error) {
     console.error("Gender update error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message: "Internal server error",
+      code: "SERVER_ERROR",
+    });
   }
 });
 user_router.post(
