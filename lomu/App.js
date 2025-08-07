@@ -5,6 +5,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { BACKEND_URI } from "@env";
 
+import { LogBox } from "react-native";
+
+LogBox.ignoreAllLogs(); // Turns off logs warnings
+
 const registerPushToken = async () => {
   const { status } = await Notifications.requestPermissionsAsync();
   if (status !== "granted") return;
