@@ -103,17 +103,27 @@ user_router.post("/gender", async (req, res) => {
       return res.status(400).json({ message: "Invalid gender value" });
     }
 
+    // Check if user exists and gender isn't already set
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.gender) {
+      return res.status(400).json({ message: "Gender already set" });
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { gender },
       { new: true }
     );
 
-    if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.status(200).json({ message: "Gender updated successfully" });
+    res.status(200).json({
+      message: "Gender updated successfully",
+      gender: updatedUser.gender,
+    });
   } catch (error) {
     console.error("Gender update error:", error);
     res.status(500).json({ message: "Server error" });
