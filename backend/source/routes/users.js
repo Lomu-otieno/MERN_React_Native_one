@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import { storage } from "../lib/cloudinary.js";
 import { cloudinary } from "../lib/cloudinary.js";
 import multer from "multer";
+import { getLocationName } from "../middleware/geolocation.js";
 
 const upload = multer({ storage });
 const user_router = express.Router();
@@ -74,8 +75,8 @@ user_router.put("/update-profile", protect, async (req, res) => {
     // Allow updating these any time
     if (bio !== undefined) user.bio = bio;
     if (interests !== undefined) user.interests = interests;
-    if (photos !== undefined) user.photos = photos;
-    if (location !== undefined) user.location = location;
+    // if (photos !== undefined) user.photos = photos;
+    // if (location !== undefined) user.location = location;
 
     await user.save();
 
@@ -367,14 +368,22 @@ user_router.put("/location", protect, async (req, res) => {
   }
 
   try {
+    // Fetch readable location
+    const locationName = await getLocationName(latitude, longitude);
+
+    // Update user location and readable location
     await User.findByIdAndUpdate(req.user.id, {
       location: {
         type: "Point",
-        coordinates: [longitude, latitude], // GeoJSON format: [lng, lat]
+        coordinates: [longitude, latitude], // GeoJSON format
       },
+      locationName: locationName, // Save to a field in User schema
     });
 
-    res.status(200).json({ message: "Location updated successfully" });
+    res.status(200).json({
+      message: "Location updated successfully",
+      readableLocation: locationName,
+    });
   } catch (err) {
     console.error("Error updating location:", err);
     res.status(500).json({ message: "Failed to update location" });
@@ -414,7 +423,8 @@ user_router.get("/view-profile", protect, async (req, res) => {
       dateOfBirth: user.dateOfBirth,
       age,
       interests: user.interests,
-      location: user.location, // Return whatever you store here
+      location: user.location, // coordinates
+      locationName: user.locationName,
       profileImage: user.profileImage,
       likes: user.likes,
       likesCount: user.likes.length,
