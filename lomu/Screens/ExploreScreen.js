@@ -61,6 +61,30 @@ const ExploreScreen = () => {
     }
   };
 
+  const handleAction = async (userId, action) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const endpoint =
+        action === "like"
+          ? `/api/user/like/${userId}`
+          : `/api/user/pass/${userId}`;
+      await axios.post(
+        `${SERVER_URL}${endpoint}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+    } catch (err) {
+      console.error(`${action} error:`, err.response?.data || err.message);
+      showMessage(`Failed to ${action} user`);
+    }
+  };
+
+  const onRefresh = () => {
+    // setRefreshing(true);
+    fetchUsers();
+  };
   const updateLocation = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -100,34 +124,17 @@ const ExploreScreen = () => {
     }
   };
 
-  const handleAction = async (userId, action) => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      const endpoint =
-        action === "like"
-          ? `/api/user/like/${userId}`
-          : `/api/user/pass/${userId}`;
-      await axios.post(
-        `${SERVER_URL}${endpoint}`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-    } catch (err) {
-      console.error(`${action} error:`, err.response?.data || err.message);
-      showMessage(`Failed to ${action} user`);
-    }
-  };
-
-  const onRefresh = () => {
-    // setRefreshing(true);
-    fetchUsers();
-  };
-
   useEffect(() => {
-    updateLocation();
-    fetchUsers();
+    const initialize = async () => {
+      try {
+        await updateLocation(); // Wait until location is updated
+        await fetchUsers(); // Then fetch nearby users
+      } catch (error) {
+        console.error("Initialization failed:", error);
+        showMessage("Something went wrong. Please try again.");
+      }
+    };
+    initialize();
   }, []);
 
   if (loading) {
