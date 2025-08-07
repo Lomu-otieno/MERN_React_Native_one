@@ -14,12 +14,15 @@ import rateLimit from "express-rate-limit";
 
 const app = express();
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-});
+app.set("trust proxy", 1);
+app.use(express.json()); // Important for parsing req.body
 
-app.use(limiter);
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // limit each IP to 100 requests per windowMs
+// });
+
+// app.use(limiter);
 
 app.use(compression());
 
@@ -42,8 +45,6 @@ app.use(helmet()); // Add secure HTTP headers
 app.use(express.urlencoded({ extended: true })); // For parsing form data
 
 const PORT = process.env.PORT || 3001;
-
-app.use(express.json()); // Important for parsing req.body
 
 app.use("/api/auth", authRoutes);
 
