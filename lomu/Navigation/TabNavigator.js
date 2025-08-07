@@ -14,6 +14,12 @@ const TabNavigator = () => {
         headerShown: false,
         tabBarActiveTintColor: "#E91E63",
         tabBarInactiveTintColor: "gray",
+        tabBarStyle: {
+          backgroundColor: "#000",
+          borderTopWidth: 0,
+          paddingBottom: 0,
+          paddingTop: 0,
+        },
         tabBarIcon: ({ color, size }) => {
           let iconName;
 
