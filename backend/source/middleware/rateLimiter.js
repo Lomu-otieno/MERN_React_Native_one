@@ -9,25 +9,4 @@ const locationLimiter = rateLimit({
   },
 });
 
-user_router.put(
-  "/location",
-  authMiddleware,
-  locationLimiter,
-  async (req, res) => {
-    const { latitude, longitude } = req.body;
-
-    try {
-      await User.findByIdAndUpdate(req.user.id, {
-        location: {
-          type: "Point",
-          coordinates: [longitude, latitude],
-        },
-      });
-
-      res.status(200).json({ message: "Location updated" });
-    } catch (err) {
-      console.error("Location update error:", err);
-      res.status(500).json({ message: "Failed to update location" });
-    }
-  }
-);
+export default loginLimiter;
