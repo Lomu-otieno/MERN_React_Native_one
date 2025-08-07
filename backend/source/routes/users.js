@@ -89,6 +89,30 @@ user_router.put("/update-profile", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+user_router.post("/gender", async (req, res) => {
+  const { userId, gender } = req.body;
+
+  if (!userId || !gender) {
+    return res.status(400).json({ message: "userId and gender are required" });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { gender },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "Gender updated", user });
+  } catch (err) {
+    console.error("Error updating gender:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 user_router.post(
   "/upload-photos",
   protect,

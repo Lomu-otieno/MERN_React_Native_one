@@ -13,7 +13,6 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { BACKEND_URI } from "@env";
-
 const LOGIN_URL = `${BACKEND_URI}/api/auth/login`;
 
 const LoginScreen = () => {

@@ -59,7 +59,7 @@ const ExploreScreen = () => {
       const res = await axios.get(`${SERVER_URL}/api/users/explore`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUsers(res.data);
+      setUsers([...res.data, { _id: "end", isPlaceholder: true }]);
       setCurrentIndex(0); // Reset index when new users are loaded
     } catch (err) {
       console.error("Fetch error:", err.response?.data || err.message);
@@ -207,38 +207,65 @@ const ExploreScreen = () => {
           <Swiper
             ref={swiperRef}
             cards={users}
-            renderCard={(user) => (
-              <View style={styles.card}>
-                <Image
-                  source={{
-                    uri: user.profileImage || "https://i.imgur.com/5WzFNgi.jpg",
-                  }}
-                  style={styles.image}
-                />
-                <View style={styles.overlay} />
-                <View style={styles.info}>
-                  <Text style={styles.name}>@{user.username}</Text>
-                  <Text style={styles.age}>
-                    {user.age || "Age not specified"}
-                  </Text>
-                  <Text style={styles.bio} numberOfLines={2}>
-                    {user.bio || "No bio yet"}
-                  </Text>
-                  <View style={styles.distanceContainer}>
-                    <Ionicons
-                      name="location-outline"
-                      size={16}
-                      color="#FF0050"
-                    />
-                    <Text style={styles.distance}>
-                      {user.distance
-                        ? `${(user.distance / 1000).toFixed(1)} km away`
-                        : "Distance unknown"}
+            renderCard={(user) =>
+              user && !user.isPlaceholder ? (
+                // normal user card
+                <View style={styles.card}>
+                  <Image
+                    source={{
+                      uri:
+                        user.profileImage || "https://i.imgur.com/5WzFNgi.jpg",
+                    }}
+                    style={styles.image}
+                  />
+                  <View style={styles.overlay} />
+                  <View style={styles.info}>
+                    <Text style={styles.name}>@{user.username}</Text>
+                    <Text style={styles.age}>
+                      {user.age || "Age not specified"}
                     </Text>
+                    <Text style={styles.bio} numberOfLines={2}>
+                      {user.bio || "No bio yet"}
+                    </Text>
+                    <View style={styles.distanceContainer}>
+                      <Ionicons
+                        name="location-outline"
+                        size={16}
+                        color="#FF0050"
+                      />
+                      <Text style={styles.distance}>
+                        {user.distance
+                          ? `${(user.distance / 1000).toFixed(1)} km away`
+                          : "Distance unknown"}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            )}
+              ) : (
+                // final card (no more users)
+                <View style={styles.card}>
+                  <View style={styles.overlay} />
+                  <View style={[styles.info, { alignItems: "center" }]}>
+                    <Ionicons
+                      name="checkmark-done-outline"
+                      size={40}
+                      color="#FF0050"
+                    />
+                    <Text style={styles.name}>You're all caught up!</Text>
+                    <Text style={styles.bio}>
+                      Check back later for new people nearby.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={fetchUsers}
+                      style={styles.refreshButtonEnd}
+                    >
+                      <Ionicons name="refresh" size={20} color="#fff" />
+                      <Text style={styles.refreshTextEnd}>Refresh</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )
+            }
             onSwiped={(index) => setCurrentIndex(index + 1)}
             onSwipedLeft={(index) => {
               const user = users[index];
@@ -477,6 +504,21 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: "#fff",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  refreshButtonEnd: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: "#FF0050",
+    borderRadius: 25,
+  },
+  refreshTextEnd: {
+    color: "#fff",
+    marginLeft: 8,
     fontSize: 16,
     fontWeight: "500",
   },

@@ -11,6 +11,7 @@ import ResetPasswordScreen from "../Screens/ResetPasswordScreen";
 import TabNavigator from "./TabNavigator";
 import UserMatch from "../Screens/UserMatch";
 import EditProfileScreen from "../Screens/EditProfileScreen";
+import SetGenderScreen from "../Screens/SetGenderScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -61,6 +62,11 @@ const AppNavigator = () => (
       <Stack.Screen
         name="EditProfile"
         component={EditProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SetGender"
+        component={SetGenderScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

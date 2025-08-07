@@ -39,9 +39,7 @@ const RegisterScreen = () => {
         email,
         password,
       });
-
-      Alert.alert("Success", "Account created! Please log in.");
-      navigation.navigate("Login");
+      navigation.replace("SetGender");
     } catch (error) {
       console.error(
         "Registration error:",
