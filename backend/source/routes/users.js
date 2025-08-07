@@ -282,18 +282,21 @@ user_router.get("/explore", protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
 
+    // Check if user and location are available
     if (!currentUser || !currentUser.location?.coordinates) {
       return res.status(400).json({ message: "User location not set" });
     }
 
     const [userLng, userLat] = currentUser.location.coordinates;
 
+    // Users to exclude: already liked, passed, or current user
     const excludedUserIds = [
       ...(currentUser.likes || []),
       ...(currentUser.passes || []),
       currentUser._id,
     ];
 
+    // Gender preference logic
     const genderFilter =
       req.query.gender ||
       (currentUser.gender === "male"
@@ -302,6 +305,7 @@ user_router.get("/explore", protect, async (req, res) => {
         ? "male"
         : undefined);
 
+    // GeoNear aggregation pipeline
     const geoQuery = [
       {
         $geoNear: {
@@ -309,9 +313,9 @@ user_router.get("/explore", protect, async (req, res) => {
             type: "Point",
             coordinates: [userLng, userLat],
           },
-          distanceField: "distance", // in meters
+          distanceField: "distance", // meters
           spherical: true,
-          maxDistance: 50000, // 50km
+          maxDistance: 50000, // 50 km
           query: {
             _id: { $nin: excludedUserIds },
             ...(genderFilter && { gender: genderFilter }),
@@ -325,6 +329,7 @@ user_router.get("/explore", protect, async (req, res) => {
 
     const users = await User.aggregate(geoQuery);
 
+    // Age calculator
     const calculateAge = (birthDate) => {
       if (!birthDate) return null;
       const today = new Date();
@@ -340,6 +345,7 @@ user_router.get("/explore", protect, async (req, res) => {
       return age;
     };
 
+    // Format output
     const formattedUsers = users.map((user) => ({
       _id: user._id,
       username: user.username,
@@ -352,15 +358,15 @@ user_router.get("/explore", protect, async (req, res) => {
       location: user.location,
       profileImage: user.profileImage,
       likes: user.likes,
-      likesCount: user.likes.length,
+      likesCount: user.likes?.length || 0,
       photos: user.photos,
-      distance: (user.distance / 1000).toFixed(1), // km
+      distance: (user.distance / 1000).toFixed(1), // in km
     }));
 
-    res.status(200).json(formattedUsers);
-  } catch (err) {
-    console.error("Explore error:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(200).json(formattedUsers);
+  } catch (error) {
+    console.error("Explore route error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

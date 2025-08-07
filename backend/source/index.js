@@ -27,17 +27,8 @@ app.get("/healthz", (req, res) => {
   res.send("API is running...");
 });
 
-explore_router.get("/", protect, async (req, res) => {
-  try {
-    if (!req.user || !req.user.location) {
-      return res.status(400).json({ message: "User location not set" });
-    }
-
-    // ... continue as normal
-  } catch (error) {
-    console.error("Explore route error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
+explore_router.get("/", async (req, res) => {
+  res.send("Server is Alive");
 });
 
 app.use(
