@@ -27,8 +27,8 @@ app.get("/healthz", (req, res) => {
   res.send("API is running...");
 });
 
-app.get("/", async (req, res) => {
-  res.send("Server is Alive");
+app.get("/", (req, res) => {
+  res.send("Server is running.");
 });
 
 app.use(
