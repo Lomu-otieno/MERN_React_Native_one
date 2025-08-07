@@ -27,7 +27,7 @@ app.get("/healthz", (req, res) => {
   res.send("API is running...");
 });
 
-explore_router.get("/", async (req, res) => {
+app.get("/", async (req, res) => {
   res.send("Server is Alive");
 });
 
