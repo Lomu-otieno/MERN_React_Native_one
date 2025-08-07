@@ -29,6 +29,8 @@ const EditProfileScreen = ({ navigation }) => {
     const loadProfile = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
+
+        // Fetch profile
         const res = await axios.get(`${SERVER_URL}/api/users/view-profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -46,6 +48,30 @@ const EditProfileScreen = ({ navigation }) => {
       } catch (err) {
         console.error("Error loading profile:", err);
       }
+
+      // Fetch and update location
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const loc = await Location.getCurrentPositionAsync({});
+        const token = await AsyncStorage.getItem("token");
+
+        try {
+          const locationRes = await axios.put(
+            `${SERVER_URL}/api/users/location`,
+            {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          setLocation(locationRes.data.locationName);
+        } catch (err) {
+          console.error("Location update failed:", err.message);
+        }
+      }
     };
 
     loadProfile();
@@ -58,25 +84,41 @@ const EditProfileScreen = ({ navigation }) => {
       const updatedData = {
         bio,
         interests,
-        location,
       };
 
       if (!genderLocked) updatedData.gender = gender;
       if (!dobLocked) updatedData.dateOfBirth = dateOfBirth;
 
-      await axios.put(
-        `${SERVER_URL}/api/settings/update-details`,
-        updatedData,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      await axios.put(`${SERVER_URL}/api/users/update-profile`, updatedData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       Alert.alert("Success", "Profile updated successfully");
       navigation.goBack();
     } catch (error) {
       console.error("Update error:", error.response?.data || error.message);
       Alert.alert("Error", "Failed to update profile");
+    }
+  };
+
+  const updateLocation = async (latitude, longitude) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      const res = await axios.put(
+        `${SERVER_URL}/api/users/location`,
+        { latitude, longitude },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setLocation(res.data.locationName);
+    } catch (err) {
+      console.error(
+        "Location update failed",
+        err.response?.data || err.message
+      );
     }
   };
 

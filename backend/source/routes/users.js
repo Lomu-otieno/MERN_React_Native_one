@@ -46,7 +46,7 @@ user_router.post(
   }
 );
 user_router.put("/update-profile", protect, async (req, res) => {
-  const { bio, gender, dateOfBirth, interests, photos, location } = req.body;
+  const { bio, gender, dateOfBirth, interests, locationName } = req.body;
 
   try {
     const user = await User.findById(req.user._id);
@@ -75,8 +75,6 @@ user_router.put("/update-profile", protect, async (req, res) => {
     // Allow updating these any time
     if (bio !== undefined) user.bio = bio;
     if (interests !== undefined) user.interests = interests;
-    // if (photos !== undefined) user.photos = photos;
-    // if (location !== undefined) user.location = location;
 
     await user.save();
 
@@ -349,7 +347,7 @@ user_router.get("/match/:id", protect, async (req, res) => {
       username: user.username,
       bio: user.bio,
       dateOfBirth: user.dateOfBirth,
-      age: age, // Include calculated age
+      age: age,
       interests: user.interests,
       location: user.locationName,
       profileImage: user.profileImage,

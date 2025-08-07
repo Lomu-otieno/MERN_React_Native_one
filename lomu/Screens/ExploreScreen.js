@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Dimensions,
   View,
@@ -9,24 +9,30 @@ import {
   StatusBar,
   TouchableOpacity,
   Animated,
+  Platform,
 } from "react-native";
 import Swiper from "react-native-deck-swiper";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform } from "react-native";
 import * as Location from "expo-location";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const SERVER_URL = "https://lomu-dating-backend.onrender.com";
 const { width, height } = Dimensions.get("window");
 
 const ExploreScreen = () => {
+  // Refs
+  const swiperRef = useRef(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // State
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  // const [refreshing, setRefreshing] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [errorMessage, setErrorMessage] = useState(null);
-  const fadeAnim = useState(new Animated.Value(0))[0];
 
+  // Animation for error messages
   const showMessage = (message) => {
     setErrorMessage(message);
     Animated.sequence([
@@ -44,6 +50,7 @@ const ExploreScreen = () => {
     ]).start(() => setErrorMessage(null));
   };
 
+  // Fetch users from API
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -52,50 +59,26 @@ const ExploreScreen = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUsers(res.data);
+      setCurrentIndex(0); // Reset index when new users are loaded
     } catch (err) {
       console.error("Fetch error:", err.response?.data || err.message);
       showMessage("Failed to load users");
     } finally {
       setLoading(false);
-      // setRefreshing(false);
     }
   };
 
-  const handleAction = async (userId, action) => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      const endpoint =
-        action === "like"
-          ? `/api/user/like/${userId}`
-          : `/api/user/pass/${userId}`;
-      await axios.post(
-        `${SERVER_URL}${endpoint}`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-    } catch (err) {
-      console.error(`${action} error:`, err.response?.data || err.message);
-      showMessage(`Failed to ${action} user`);
-    }
-  };
-
-  const onRefresh = () => {
-    // setRefreshing(true);
-    fetchUsers();
-  };
+  // Update user's location
   const updateLocation = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
-
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") return;
 
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
 
-      const response = await axios.put(
+      await axios.put(
         `${SERVER_URL}/api/users/location`,
         { latitude, longitude },
         {
@@ -103,40 +86,65 @@ const ExploreScreen = () => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          validateStatus: (status) => status < 500, // Don't throw on 4xx errors
         }
       );
-
-      if (response.status === 404) {
-        console.warn("Endpoint not found - check your backend routes");
-      }
-
-      return response.data;
     } catch (error) {
-      if (error.response) {
-        console.error("Full error response:", {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers,
-        });
-      }
-      throw error;
+      console.error("Location error:", error.response?.data || error.message);
     }
   };
 
+  // Handle like/pass actions
+  const handleAction = async (userId, action) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const endpoint = `/api/users/${action}/${userId}`;
+      await axios.post(
+        `${SERVER_URL}${endpoint}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error(`${action} error:`, err.response?.data || err.message);
+      showMessage(`Failed to ${action} user`);
+    }
+  };
+
+  // Initialize the screen
+  const initialize = async () => {
+    try {
+      await updateLocation();
+      await fetchUsers();
+    } catch (error) {
+      console.error("Initialization failed:", error);
+      showMessage("Something went wrong. Please try again.");
+    }
+  };
+
+  const handleButtonPress = (action) => {
+    console.log(`Action: ${action}`); // ✅ Check if function is triggered
+    console.log("Pressed:", action);
+    console.log("SwiperRef:", swiperRef.current);
+
+    if (!users.length || currentIndex >= users.length) {
+      showMessage("No more users to swipe");
+      return;
+    }
+
+    if (swiperRef.current) {
+      action === "like"
+        ? swiperRef.current.swipeRight()
+        : swiperRef.current.swipeLeft();
+    } else {
+      console.warn("Swiper ref is null");
+    }
+  };
+
+  // Initialize on mount
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        await updateLocation(); // Wait until location is updated
-        await fetchUsers(); // Then fetch nearby users
-      } catch (error) {
-        console.error("Initialization failed:", error);
-        showMessage("Something went wrong. Please try again.");
-      }
-    };
     initialize();
   }, []);
 
+  // Loading state
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -145,6 +153,7 @@ const ExploreScreen = () => {
     );
   }
 
+  // Empty state
   if (!users.length) {
     return (
       <View style={[styles.container, styles.centeredEmpty]}>
@@ -153,7 +162,7 @@ const ExploreScreen = () => {
         <Text style={styles.emptySubtitle}>
           Check back later for new profiles
         </Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+        <TouchableOpacity style={styles.refreshButton} onPress={fetchUsers}>
           <Ionicons name="refresh" size={20} color="#FF0050" />
           <Text style={styles.refreshText}>Refresh</Text>
         </TouchableOpacity>
@@ -162,121 +171,139 @@ const ExploreScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent
-      />
+    <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" translucent />
 
-      {errorMessage && (
-        <Animated.View style={[styles.messageContainer, { opacity: fadeAnim }]}>
-          <Text style={styles.messageText}>{errorMessage}</Text>
-        </Animated.View>
-      )}
-
-      <Swiper
-        cards={users}
-        renderCard={(user) => (
-          <View style={styles.card}>
-            <Image
-              source={{
-                uri: user.profileImage || "https://i.imgur.com/5WzFNgi.jpg",
-              }}
-              style={styles.image}
-            />
-            <View style={styles.overlay} />
-            <View style={styles.info}>
-              <Text style={styles.name}>@{user.username}</Text>
-              <Text style={styles.age}>{user.age || "Age not specified"}</Text>
-              <Text style={styles.bio} numberOfLines={2}>
-                {user.bio || "No bio yet"}
-              </Text>
-              <View style={styles.distanceContainer}>
-                <Ionicons name="location-outline" size={16} color="#FF0050" />
-                <Text style={styles.distance}>
-                  {user.distance
-                    ? `${(user.distance / 1000).toFixed(1)} km away`
-                    : "Distance unknown"}
-                </Text>
-              </View>
-            </View>
-          </View>
+        {/* Error message popup */}
+        {errorMessage && (
+          <Animated.View
+            style={[styles.messageContainer, { opacity: fadeAnim }]}
+          >
+            <Text style={styles.messageText}>{errorMessage}</Text>
+          </Animated.View>
         )}
-        onSwipedRight={(cardIndex) =>
-          handleAction(users[cardIndex]._id, "like")
-        }
-        onSwipedLeft={(cardIndex) => handleAction(users[cardIndex]._id, "pass")}
-        cardIndex={0}
-        backgroundColor={"#000"}
-        stackSize={3}
-        stackSeparation={-10}
-        overlayLabels={{
-          left: {
-            title: "NOPE",
-            style: {
-              label: {
-                backgroundColor: "#FF0050",
-                borderColor: "#FF0050",
-                color: "#fff",
-                borderWidth: 1,
-                fontSize: 24,
-              },
-              wrapper: {
-                flexDirection: "column",
-                alignItems: "flex-end",
-                justifyContent: "flex-start",
-                marginTop: 30,
-                marginLeft: -30,
-              },
-            },
-          },
-          right: {
-            title: "LIKE",
-            style: {
-              label: {
-                backgroundColor: "#FF0050",
-                borderColor: "#FF0050",
-                color: "#fff",
-                borderWidth: 1,
-                fontSize: 24,
-              },
-              wrapper: {
-                flexDirection: "column",
-                alignItems: "flex-start",
-                justifyContent: "flex-start",
-                marginTop: 30,
-                marginLeft: 30,
-              },
-            },
-          },
-        }}
-        animateOverlayLabelsOpacity
-        animateCardOpacity
-      />
 
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleAction(users[0]._id, "pass")}
-        >
-          <Ionicons name="close" size={32} color="#FF0050" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleAction(users[0]._id, "like")}
-        >
-          <Ionicons name="heart" size={32} color="#FF0050" />
-        </TouchableOpacity>
+        {/* Swiper component */}
+        <View style={{ flex: 1, zIndex: 1 }}>
+          <Swiper
+            ref={swiperRef}
+            cards={users}
+            renderCard={(user) => (
+              <View style={styles.card}>
+                <Image
+                  source={{
+                    uri: user.profileImage || "https://i.imgur.com/5WzFNgi.jpg",
+                  }}
+                  style={styles.image}
+                />
+                <View style={styles.overlay} />
+                <View style={styles.info}>
+                  <Text style={styles.name}>@{user.username}</Text>
+                  <Text style={styles.age}>
+                    {user.age || "Age not specified"}
+                  </Text>
+                  <Text style={styles.bio} numberOfLines={2}>
+                    {user.bio || "No bio yet"}
+                  </Text>
+                  <View style={styles.distanceContainer}>
+                    <Ionicons
+                      name="location-outline"
+                      size={16}
+                      color="#FF0050"
+                    />
+                    <Text style={styles.distance}>
+                      {user.distance
+                        ? `${(user.distance / 1000).toFixed(1)} km away`
+                        : "Distance unknown"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            onSwiped={(index) => setCurrentIndex(index + 1)}
+            onSwipedLeft={(index) => {
+              const user = users[index];
+              if (user) handleAction(user._id, "pass");
+            }}
+            onSwipedRight={(index) => {
+              const user = users[index];
+              if (user) handleAction(user._id, "like");
+            }}
+            cardIndex={currentIndex}
+            backgroundColor="#000"
+            stackSize={3}
+            stackSeparation={-10}
+            overlayLabels={{
+              left: {
+                title: "NOPE",
+                style: {
+                  label: {
+                    backgroundColor: "#FF0050",
+                    borderColor: "#FF0050",
+                    color: "#fff",
+                    borderWidth: 1,
+                    fontSize: 24,
+                  },
+                  wrapper: {
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                    justifyContent: "flex-start",
+                    marginTop: 30,
+                    marginLeft: -30,
+                  },
+                },
+              },
+              right: {
+                title: "LIKE",
+                style: {
+                  label: {
+                    backgroundColor: "#FF0050",
+                    borderColor: "#FF0050",
+                    color: "#fff",
+                    borderWidth: 1,
+                    fontSize: 24,
+                  },
+                  wrapper: {
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    justifyContent: "flex-start",
+                    marginTop: 30,
+                    marginLeft: 30,
+                  },
+                },
+              },
+            }}
+            animateOverlayLabelsOpacity
+            animateCardOpacity
+          />
+        </View>
+
+        {/* Action buttons */}
+        <View style={[styles.actionsContainer, { zIndex: 2 }]}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleButtonPress("pass")}
+          >
+            <Ionicons name="close" size={32} color="#FF0050" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleButtonPress("like")}
+          >
+            <Ionicons name="heart" size={32} color="#FF0050" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
+// Styles remain the same as in your original code
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor: "#fff",
   },
   card: {
     width: width * 0.9,
