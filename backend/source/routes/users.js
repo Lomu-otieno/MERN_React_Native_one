@@ -98,15 +98,20 @@ user_router.get("/view-profile", protect, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Calculate age from dateOfBirth
+    // Fetch location by userId
+    const locationDoc = await Location.findOne({ userId: req.user._id });
+
+    let locationName = "Unknown";
+    if (locationDoc && locationDoc.name) {
+      locationName = locationDoc.name;
+    }
+
     const calculateAge = (birthDate) => {
       if (!birthDate) return null;
       const today = new Date();
       const birth = new Date(birthDate);
       let age = today.getFullYear() - birth.getFullYear();
       const monthDiff = today.getMonth() - birth.getMonth();
-
-      // Adjust age if birthday hasn't occurred yet this year
       if (
         monthDiff < 0 ||
         (monthDiff === 0 && today.getDate() < birth.getDate())
@@ -125,9 +130,9 @@ user_router.get("/view-profile", protect, async (req, res) => {
       bio: user.bio,
       gender: user.gender,
       dateOfBirth: user.dateOfBirth,
-      age: age, // Include calculated age
+      age,
       interests: user.interests,
-      location: user.location,
+      location: locationName, // This is now fetched from coordinates
       profileImage: user.profileImage,
       likes: user.likes,
       likesCount: user.likes.length,
