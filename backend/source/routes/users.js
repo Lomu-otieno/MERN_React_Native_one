@@ -494,7 +494,7 @@ user_router.get("/match/:id", protect, async (req, res) => {
   }
 });
 
-user_router.put("/location", authMiddleware, async (req, res) => {
+user_router.put("/location", protect, async (req, res) => {
   const { latitude, longitude } = req.body;
 
   if (typeof latitude !== "number" || typeof longitude !== "number") {
