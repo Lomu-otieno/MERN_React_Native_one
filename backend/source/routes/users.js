@@ -494,11 +494,7 @@ user_router.get("/match/:id", protect, async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
 user_router.put("/location", protect, async (req, res) => {
-=======
-user_router.put("/location",protect , async (req, res) => {
->>>>>>> origin/main
   const { latitude, longitude } = req.body;
 
   if (typeof latitude !== "number" || typeof longitude !== "number") {
