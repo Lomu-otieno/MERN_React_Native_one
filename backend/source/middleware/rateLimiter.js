@@ -1,14 +1,33 @@
+// routes/user_router.js
 import rateLimit from "express-rate-limit";
 
-// Limit to 5 requests every 15 minutes
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+const locationLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 3,
   message: {
-    message: "Too many login attempts. Try again after 15 minutes.",
+    message: "Too many location updates. Try again in a minute.",
   },
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
-export default loginLimiter;
+user_router.put(
+  "/location",
+  authMiddleware,
+  locationLimiter,
+  async (req, res) => {
+    const { latitude, longitude } = req.body;
+
+    try {
+      await User.findByIdAndUpdate(req.user.id, {
+        location: {
+          type: "Point",
+          coordinates: [longitude, latitude],
+        },
+      });
+
+      res.status(200).json({ message: "Location updated" });
+    } catch (err) {
+      console.error("Location update error:", err);
+      res.status(500).json({ message: "Failed to update location" });
+    }
+  }
+);

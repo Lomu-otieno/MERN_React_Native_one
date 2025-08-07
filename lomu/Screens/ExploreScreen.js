@@ -63,29 +63,40 @@ const ExploreScreen = () => {
 
   const updateLocation = async () => {
     try {
-      const token = await AsyncStorage.getItem("token"); // Get the token first
+      const token = await AsyncStorage.getItem("token");
 
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        console.warn("Permission to access location was denied");
-        return;
-      }
+      if (status !== "granted") return;
 
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
 
-      await axios.put(
+      const response = await axios.put(
         `${SERVER_URL}/api/users/location`,
         { latitude, longitude },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          validateStatus: (status) => status < 500, // Don't throw on 4xx errors
+        }
       );
 
-      console.log("Location updated");
+      if (response.status === 404) {
+        console.warn("Endpoint not found - check your backend routes");
+      }
+
+      return response.data;
     } catch (error) {
-      console.error(
-        "Location update failed:",
-        error.response?.data || error.message
-      );
+      if (error.response) {
+        console.error("Full error response:", {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers,
+        });
+      }
+      throw error;
     }
   };
 
