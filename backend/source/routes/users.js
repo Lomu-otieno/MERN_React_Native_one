@@ -431,16 +431,6 @@ user_router.put("/location", protect, async (req, res) => {
 user_router.get("/explore", protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
-    try {
-      if (!req.user || !req.user.location) {
-        return res.status(400).json({ message: "User location not set" });
-      }
-
-      // ... continue as normal
-    } catch (error) {
-      console.error("Explore route error:", error);
-      res.status(500).json({ message: "Server error" });
-    }
 
     if (!currentUser || !currentUser.location?.coordinates) {
       return res.status(400).json({ message: "User location not set" });
@@ -469,9 +459,9 @@ user_router.get("/explore", protect, async (req, res) => {
             type: "Point",
             coordinates: [userLng, userLat],
           },
-          distanceField: "distance", // in meters
+          distanceField: "distance",
           spherical: true,
-          maxDistance: 50000, // 50km
+          maxDistance: 50000,
           query: {
             _id: { $nin: excludedUserIds },
             ...(genderFilter && { gender: genderFilter }),
