@@ -1,94 +1,64 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
+  TextInput,
   StyleSheet,
+  TouchableOpacity,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import { Picker } from "@react-native-picker/picker";
-import { useNavigation } from "@react-navigation/native";
 import { BACKEND_URI } from "@env";
+import { LinearGradient } from "expo-linear-gradient";
 
-const GENDER_UPDATE_URL = `${BACKEND_URI}/api/users/set-gender`;
-
-const SetGenderScreen = () => {
-  const navigation = useNavigation();
-  const [gender, setGender] = useState("");
+const SetGenderScreen = ({ navigation }) => {
+  const [email, setEmail] = useState("");
+  const [gender, setGender] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
-  // Check if gender already set
-  useEffect(() => {
-    const checkGender = async () => {
-      try {
-        const userGender = await AsyncStorage.getItem("userGender");
-        if (userGender) {
-          navigation.replace("Main");
-        }
-      } catch (error) {
-        console.error("Gender check error:", error);
-      }
-    };
-    checkGender();
-  }, []);
-
-  const handleSubmit = async () => {
-    if (!gender) {
-      setMessage({ text: "Please select your gender", type: "error" });
+  const handleSetGender = async () => {
+    if (!email || !gender) {
+      setMessage({
+        text: "Please provide both email and gender",
+        type: "error",
+      });
       return;
     }
 
-    setLoading(true);
     try {
-      const userId = await AsyncStorage.getItem("userId");
+      setLoading(true);
+      const response = await fetch(`${BACKEND_URI}/api/users/set-gender`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, gender }),
+      });
 
-      if (!userId) {
-        setMessage({ text: "User session expired", type: "error" });
-        return navigation.replace("Auth");
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({ text: "Gender updated successfully!", type: "success" });
+        setTimeout(() => navigation.replace("Login"), 2000);
+      } else {
+        setMessage({
+          text: data.message || "Something went wrong",
+          type: "error",
+        });
       }
-
-      const response = await axios.post(GENDER_UPDATE_URL, {
-        userId,
-        gender,
-      });
-
-      // Store gender locally for immediate access
-      await AsyncStorage.setItem("userGender", gender);
-
-      setMessage({
-        text: "Profile setup complete!",
-        type: "success",
-      });
-
-      setTimeout(() => navigation.replace("Main"), 1500);
     } catch (error) {
-      let errorMsg = "Failed to update gender";
-
-      // Handle specific error codes
-      switch (error.response?.data?.code) {
-        case "GENDER_ALREADY_SET":
-          errorMsg = "Gender already set";
-          navigation.replace("Main");
-          break;
-        case "INVALID_GENDER":
-          errorMsg = "Please select a valid gender";
-          break;
-      }
-
-      setMessage({
-        text: errorMsg,
-        type: "error",
-      });
+      console.error(error);
+      setMessage({ text: "Could not update gender", type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
   // Auto-clear message after 3 seconds
-  useEffect(() => {
+  React.useEffect(() => {
     if (message.text) {
       const timer = setTimeout(() => {
         setMessage({ text: "", type: "" });
@@ -98,111 +68,200 @@ const SetGenderScreen = () => {
   }, [message]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Complete Your Profile</Text>
-      <Text style={styles.subtitle}>
-        Select your gender to get better matches
-      </Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      <LinearGradient colors={["#121212", "#1E1E1E"]} style={styles.gradient}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Complete Your Profile</Text>
+          <Text style={styles.subtitle}>
+            Let us know your gender to find better matches
+          </Text>
 
-      {message.text ? (
-        <View
-          style={[
-            styles.messageContainer,
-            message.type === "success"
-              ? styles.successMessage
-              : styles.errorMessage,
-          ]}
-        >
-          <Text style={styles.messageText}>{message.text}</Text>
+          {message.text ? (
+            <View
+              style={[
+                styles.messageContainer,
+                message.type === "success"
+                  ? styles.successMessage
+                  : styles.errorMessage,
+              ]}
+            >
+              <Text style={styles.messageText}>{message.text}</Text>
+            </View>
+          ) : null}
+
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your email"
+            placeholderTextColor="#666"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <View style={styles.genderContainer}>
+            <TouchableOpacity
+              style={[
+                styles.genderButton,
+                gender === "male" && styles.maleSelected,
+              ]}
+              onPress={() => setGender("male")}
+            >
+              <Text
+                style={[
+                  styles.genderText,
+                  gender === "male" && styles.genderSelectedText,
+                ]}
+              >
+                Male
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.genderButton,
+                gender === "female" && styles.femaleSelected,
+              ]}
+              onPress={() => setGender("female")}
+            >
+              <Text
+                style={[
+                  styles.genderText,
+                  gender === "female" && styles.genderSelectedText,
+                ]}
+              >
+                Female
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleSetGender}
+            disabled={loading || !email || !gender}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Continue</Text>
+            )}
+          </TouchableOpacity>
         </View>
-      ) : null}
-
-      <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={gender}
-          onValueChange={setGender}
-          style={styles.picker}
-          dropdownIconColor="#FF0050"
-        >
-          <Picker.Item label="Select gender" value="" color="#999" />
-          <Picker.Item label="Male" value="male" />
-          <Picker.Item label="Female" value="female" />
-          <Picker.Item label="Other" value="other" />
-        </Picker>
-      </View>
-
-      <TouchableOpacity
-        onPress={handleSubmit}
-        style={[styles.button, (!gender || loading) && styles.buttonDisabled]}
-        disabled={!gender || loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Continue</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+        <StatusBar barStyle={"light-content"} backgroundColor="#000" />
+      </LinearGradient>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 25,
-    backgroundColor: "#fff",
+    backgroundColor: "#121212",
+  },
+  gradient: {
+    flex: 1,
     justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  content: {
+    backgroundColor: "#1E1E1E",
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 32,
+    fontWeight: "700",
     textAlign: "center",
-    marginBottom: 8,
-    color: "#333",
+    marginBottom: 16,
+    color: "#FF0050",
   },
   subtitle: {
     fontSize: 16,
     textAlign: "center",
-    marginBottom: 30,
-    color: "#666",
+    marginBottom: 32,
+    color: "#AAA",
   },
-  pickerWrapper: {
+  input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    marginBottom: 30,
-    overflow: "hidden",
+    borderColor: "#333",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+    fontSize: 16,
+    backgroundColor: "#252525",
+    color: "#FFFFFF",
+    placeholderTextColor: "#666",
   },
-  picker: {
-    height: 50,
+  genderContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 32,
+  },
+  genderButton: {
+    flex: 1,
+    marginHorizontal: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "#252525",
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  maleSelected: {
+    backgroundColor: "#1E3A8A",
+    borderColor: "#3B82F6",
+  },
+  femaleSelected: {
+    backgroundColor: "#1E3A8A",
+    borderColor: "#3B82F6",
+  },
+  genderText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#DDD",
+  },
+  genderSelectedText: {
+    color: "#FFF",
+    fontWeight: "700",
   },
   button: {
     backgroundColor: "#FF0050",
-    padding: 16,
-    borderRadius: 10,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+    shadowColor: "#FF0050",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
+    color: "#FFFFFF",
+    fontWeight: "600",
     fontSize: 16,
   },
   messageContainer: {
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    backgroundColor: "#333",
   },
   successMessage: {
-    backgroundColor: "#4BB543",
+    backgroundColor: "#0000",
   },
   errorMessage: {
-    backgroundColor: "#FF0033",
+    backgroundColor: "#000",
   },
   messageText: {
-    color: "#fff",
+    color: "#FFF",
     textAlign: "center",
     fontWeight: "500",
   },
