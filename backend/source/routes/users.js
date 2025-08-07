@@ -511,7 +511,7 @@ user_router.put("/location", protect, async (req, res) => {
     await User.findByIdAndUpdate(req.user.id, {
       location: {
         type: "Point",
-        coordinates: [longitude, latitude], // GeoJSON format: [lng, lat]
+        coordinates: [longitude, latitude],
       },
     });
 
