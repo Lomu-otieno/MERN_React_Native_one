@@ -172,9 +172,33 @@ const ExploreScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.headerContainer}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={{
+              uri: "https://i.pinimg.com/736x/10/53/15/105315c12a8fde9572339c5e00786c98.jpg",
+            }}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.appName}>Lomu</Text>
+        </View>
+        <View style={styles.headerIcons}>
+          <Ionicons
+            name="notifications-outline"
+            size={24}
+            color="white"
+            style={styles.icon}
+          />
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={24}
+            color="white"
+            style={styles.icon}
+          />
+        </View>
+      </View>
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" translucent />
-
         {/* Error message popup */}
         {errorMessage && (
           <Animated.View
@@ -296,14 +320,47 @@ const ExploreScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
+      <StatusBar barStyle="light-content" translucent />
     </SafeAreaView>
   );
 };
 
 // Styles remain the same as in your original code
 const styles = StyleSheet.create({
+  headerContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#dbdbdb",
+    backgroundColor: "#000",
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    marginRight: 10, // Space between logo and text
+  },
+  appName: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  headerIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  icon: {
+    marginLeft: 20,
+  },
   container: {
     flex: 1,
+    backgroundColor: "#000",
   },
   card: {
     width: width * 0.9,
@@ -398,7 +455,7 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     position: "absolute",
-    bottom: 40,
+    bottom: -10,
     flexDirection: "row",
     justifyContent: "space-around",
     width: "60%",
