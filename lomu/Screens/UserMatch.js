@@ -148,6 +148,7 @@ const UserMatch = ({ route, navigation }) => {
               <Text style={styles.infoText}>{user.location}</Text>
             </View>
           )}
+
           {user.interests?.length > 0 && (
             <View style={styles.infoRow}>
               <Ionicons name="heart" size={20} color="#FF0050" />

@@ -351,7 +351,7 @@ user_router.get("/match/:id", protect, async (req, res) => {
       dateOfBirth: user.dateOfBirth,
       age: age, // Include calculated age
       interests: user.interests,
-      location: user.location,
+      location: user.locationName,
       profileImage: user.profileImage,
       photos: user.photos,
     });
@@ -368,21 +368,19 @@ user_router.put("/location", protect, async (req, res) => {
   }
 
   try {
-    // Fetch readable location
     const locationName = await getLocationName(latitude, longitude);
 
-    // Update user location and readable location
     await User.findByIdAndUpdate(req.user.id, {
       location: {
         type: "Point",
-        coordinates: [longitude, latitude], // GeoJSON format
+        coordinates: [longitude, latitude],
       },
-      locationName: locationName, // Save to a field in User schema
+      locationName: locationName,
     });
 
     res.status(200).json({
       message: "Location updated successfully",
-      readableLocation: locationName,
+      locationName: locationName,
     });
   } catch (err) {
     console.error("Error updating location:", err);

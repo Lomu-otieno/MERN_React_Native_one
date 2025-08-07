@@ -33,13 +33,13 @@ const EditProfileScreen = ({ navigation }) => {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const { bio, gender, dateOfBirth, interests, location } = res.data;
+        const { bio, gender, dateOfBirth, interests, locationName } = res.data;
 
         setBio(bio || "");
         setGender(gender || "");
         setDateOfBirth(dateOfBirth ? dateOfBirth.split("T")[0] : "");
         setInterests(interests || "");
-        setLocation(location || "");
+        setLocation(locationName || "");
 
         if (gender) setGenderLocked(true);
         if (dateOfBirth) setDobLocked(true);
@@ -131,7 +131,6 @@ const EditProfileScreen = ({ navigation }) => {
         editable={false}
         style={[styles.input, styles.disabledInput]}
       />
-
       <TouchableOpacity style={styles.button} onPress={handleUpdate}>
         <Text style={styles.buttonText}>Save Changes</Text>
       </TouchableOpacity>
