@@ -90,26 +90,32 @@ user_router.put("/update-profile", protect, async (req, res) => {
   }
 });
 user_router.post("/gender", async (req, res) => {
-  const { userId, gender } = req.body;
-
-  if (!userId || !gender) {
-    return res.status(400).json({ message: "userId and gender are required" });
-  }
-
   try {
-    const user = await User.findByIdAndUpdate(
+    const { userId, gender } = req.body;
+
+    if (!userId || !gender) {
+      return res
+        .status(400)
+        .json({ message: "User ID and gender are required" });
+    }
+
+    if (!["male", "female"].includes(gender)) {
+      return res.status(400).json({ message: "Invalid gender value" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
       userId,
       { gender },
       { new: true }
     );
 
-    if (!user) {
+    if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json({ message: "Gender updated", user });
-  } catch (err) {
-    console.error("Error updating gender:", err);
+    res.status(200).json({ message: "Gender updated successfully" });
+  } catch (error) {
+    console.error("Gender update error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
