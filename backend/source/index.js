@@ -52,6 +52,14 @@ app.use("/api/chatAdmin", chatRoutes);
 app.use("/api/password", passwordRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use(errorHandler);
+
+app.get("/api/config", (req, res) => {
+  res.json({
+    SERVER_URL: process.env.SERVER_URL,
+    ADMIN_ID: process.env.ADMIN_ID,
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   connectDB();
