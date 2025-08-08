@@ -129,7 +129,7 @@ router.get("/messages/:userId", async (req, res) => {
 
     if (!chat) {
       return res.status(404).json({
-        message: "No chat found for this user",
+        message: "No chat",
         code: "CHAT_NOT_FOUND",
       });
     }
