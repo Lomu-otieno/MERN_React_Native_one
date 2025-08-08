@@ -125,6 +125,7 @@ const UserAdminChatScreen = ({ navigation }) => {
         userId,
         message: messageText,
       });
+      console.log("Backend URL:", BACKEND_URI);
 
       setMessages((prev) => [...prev, res.data.newMessage]);
       setMessageText("");

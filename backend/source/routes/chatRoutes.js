@@ -1,5 +1,6 @@
 import express from "express";
 import UserChat from "../models/UserChat.js";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 
 const router = express.Router();
