@@ -13,6 +13,7 @@ import {
   Alert,
   SafeAreaView,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -28,6 +29,19 @@ const UserAdminChatScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const flatListRef = useRef(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchMessages(userId, true);
+    } catch (error) {
+      console.error("Refresh error:", error);
+      setError("Failed to refresh messages");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Fetch userId from storage and load messages
   useEffect(() => {
@@ -92,6 +106,7 @@ const UserAdminChatScreen = ({ navigation }) => {
         message: messageText,
         timestamp: new Date(),
         status: "sent",
+        isAdmin: false,
       };
 
       // Optimistically update UI
@@ -134,20 +149,26 @@ const UserAdminChatScreen = ({ navigation }) => {
       );
     }
 
-    const isUser = item.sender === userId;
-    const isAdmin = !isUser;
+    // Determine if message is from admin (right side) or user (left side)
+    const isAdminMessage = item.isAdmin || item.sender !== userId;
+
     return (
       <View
-        style={[styles.messageRow, isUser ? styles.userRow : styles.otherRow]}
+        style={[
+          styles.messageRow,
+          isAdminMessage ? styles.adminRow : styles.userRow,
+        ]}
       >
         <View
           style={[
             styles.messageContainer,
-            isUser ? styles.userMessage : styles.otherMessage, // admin's will be otherMessage
+            isAdminMessage ? styles.adminMessage : styles.userMessage,
           ]}
         >
           <Text
-            style={isUser ? styles.userMessageText : styles.otherMessageText}
+            style={
+              isAdminMessage ? styles.adminMessageText : styles.userMessageText
+            }
           >
             {item.message}
           </Text>
@@ -158,11 +179,11 @@ const UserAdminChatScreen = ({ navigation }) => {
                 minute: "2-digit",
               })}
             </Text>
-            {isUser && (
+            {!isAdminMessage && (
               <Ionicons
                 name="checkmark-done"
                 size={14}
-                color="#4CAF50"
+                color={item.read ? "#4CAF50" : "#999"}
                 style={styles.statusIcon}
               />
             )}
@@ -231,6 +252,16 @@ const UserAdminChatScreen = ({ navigation }) => {
             }
             onLayout={() =>
               flatListRef.current?.scrollToEnd({ animated: true })
+            }
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={["#FF0050"]} // Android
+                tintColor="#FF0050" // iOS
+                backgroundColor="#000"
+                progressBackgroundColor="#1E1E1E"
+              />
             }
           />
         )}
@@ -336,14 +367,12 @@ const styles = StyleSheet.create({
   },
   messageRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
     marginBottom: 12,
     maxWidth: width * 0.85,
   },
   userRow: {
-    alignSelf: "flex-end",
-    flexDirection: "row",
     justifyContent: "flex-end",
+    alignSelf: "flex-end",
   },
   userMessageTail: {
     width: 0,
@@ -355,7 +384,8 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     marginBottom: 2,
   },
-  otherRow: {
+  adminRow: {
+    justifyContent: "flex-start",
     alignSelf: "flex-start",
   },
   messageContainer: {
@@ -364,39 +394,35 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   userMessage: {
-    backgroundColor: "#FF0050",
+    backgroundColor: "#FF0050", // Your accent color for user messages
     borderBottomRightRadius: 4,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     borderBottomLeftRadius: 18,
-    marginLeft: 50, // keep away from left
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
-
-  otherMessage: {
-    backgroundColor: "#252525",
+  adminMessage: {
+    backgroundColor: "#252525", // Darker background for admin messages
     borderBottomLeftRadius: 4,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     borderBottomRightRadius: 18,
-    marginRight: 50, // keep away from right
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 2.5,
     elevation: 3,
   },
-
   userMessageText: {
     color: "#fff",
     fontSize: 16,
     lineHeight: 22,
   },
-  otherMessageText: {
+  adminMessageText: {
     color: "#fff",
     fontSize: 16,
     lineHeight: 22,

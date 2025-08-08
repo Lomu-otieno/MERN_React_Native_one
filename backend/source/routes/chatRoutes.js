@@ -41,6 +41,11 @@ router.get("/:chatId", async (req, res) => {
       return res.status(404).json({ message: "Chat not found" });
     }
 
+    const messagesWithAdminFlag = chat.messages.map((msg) => ({
+      ...msg.toObject(),
+      isAdmin: msg.sender.toString() === chat.adminId?.toString(),
+    }));
+
     res.status(200).json({
       chatId: chat._id,
       userId: chat.userId,
