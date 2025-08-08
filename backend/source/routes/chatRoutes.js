@@ -170,56 +170,55 @@ router.get("/chat/:chatId", async (req, res) => {
 */
 router.post("/reply", async (req, res) => {
   try {
-    const { chatId, adminId, message, messageId } = req.body;
+    const { chatId, senderId, message, messageId, isAdmin } = req.body;
 
-    if (!chatId || !adminId || !message) {
-      return res.status(400).json({
-        message: "Chat ID, Admin ID, and message are required",
-      });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(chatId)) {
-      return res.status(400).json({ message: "Invalid chat ID" });
+    // Validate
+    if (!chatId || !senderId || !message) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
     const chat = await UserChat.findById(chatId);
-    if (!chat) {
-      return res.status(404).json({ message: "Chat not found" });
-    }
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
 
-    // If messageId provided -> attach reply to that message
+    // Handle reply to specific message
     if (messageId) {
       const target = chat.messages.id(messageId);
-      if (!target) {
+      if (!target)
         return res.status(404).json({ message: "Target message not found" });
-      }
 
       target.reply = {
-        sender: adminId,
+        sender: senderId,
         message,
         timestamp: new Date(),
         read: false,
+        isAdmin: Boolean(isAdmin),
       };
-    } else {
-      // Fallback: push as a standalone admin message (existing behaviour)
+    }
+    // Handle new message
+    else {
       chat.messages.push({
-        sender: adminId,
+        sender: senderId,
         message,
         timestamp: new Date(),
         read: false,
+        isAdmin: Boolean(isAdmin),
       });
     }
 
-    chat.status = "open";
-    chat.adminId = chat.adminId || adminId;
+    // Update chat status
+    if (isAdmin) {
+      chat.adminId = chat.adminId || senderId;
+      chat.status = "open";
+    }
+
     await chat.save();
 
     return res.status(201).json({
-      message: "Reply saved successfully",
+      message: "Reply saved",
       chatId: chat._id,
     });
   } catch (error) {
-    console.error("Admin reply error:", error);
+    console.error("Reply error:", error);
     res.status(500).json({
       message: "Failed to send reply",
       error: error.message,
