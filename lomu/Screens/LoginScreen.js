@@ -40,7 +40,7 @@ const LoginScreen = () => {
       const { token, user } = response.data;
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("user", JSON.stringify(user));
-      await AsyncStorage.setItem("userId", res.data.user.id);
+      await AsyncStorage.setItem("userId", user.id);
 
       navigation.replace("Main");
     } catch (error) {
