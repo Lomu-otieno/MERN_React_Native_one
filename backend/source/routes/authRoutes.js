@@ -103,7 +103,7 @@ router.post("/login", loginLimiter, async (req, res) => {
       message: "Login successful",
       token,
       user: {
-        _id: user._id,
+        id: user._id,
         username: user.username,
         email: user.email,
         profileImage: user.profileImage,
