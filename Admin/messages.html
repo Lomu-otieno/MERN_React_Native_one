@@ -412,56 +412,61 @@
         }
 
         async function sendReply() {
-    if (!currentChat) {
-        showError('No active chat selected');
-        return;
-    }
-    
-    const adminId = adminIdInput.value.trim();
-    const message = replyMessage.value.trim();
-    
-    clearError();
-    
-    if (!adminId || !message) {
-        showError('Admin ID and message are required');
-        return;
-    }
-    
-    try {
-        setLoading(true, sendReplyBtn);
-        
-        const response = await fetch(`${SERVER_URL}/api/chatAdmin/reply`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                chatId: currentChat.id,
-                senderId: adminId,  // Changed from adminId to senderId
-                message: message,
-                isAdmin: true  // Added isAdmin flag
-            })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Server error: ${response.status}`);
+                if (!currentChat) {
+                    showError('No active chat selected');
+                    return;
+                }
+                
+                const adminId = adminIdInput.value.trim();
+                const message = replyMessage.value.trim();
+                
+                clearError();
+                
+                if (!adminId || !message) {
+                    showError('Admin ID and message are required');
+                    return;
+                }
+                
+                try {
+                    setLoading(true, sendReplyBtn);
+                    
+                    console.log("Sending reply with:", {
+                        chatId: currentChat.id,
+                        adminId: adminId,  // Changed from senderId to adminId
+                        message: message
+                    });
+                    
+                    const response = await fetch(`${SERVER_URL}/api/chatAdmin/reply`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chatId: currentChat.id,
+                            adminId: adminId,  // Changed from senderId to adminId
+                            message: message
+                            // Removed isAdmin since backend doesn't expect it
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || `Server error: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log("Reply result:", result);
+                    
+                    await refreshMessages();
+                    replyMessage.value = '';
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError(error.message || 'Failed to send reply');
+                } finally {
+                    setLoading(false, sendReplyBtn);
+                }
         }
-        
-        const result = await response.json();
-        console.log("Reply result:", result);
-        
-        // Refresh messages after successful reply
-        await refreshMessages();
-        replyMessage.value = ''; // Clear reply input
-        
-    } catch (error) {
-        console.error('Error:', error);
-        showError(error.message || 'Failed to send reply');
-    } finally {
-        setLoading(false, sendReplyBtn);
-    }
-}
 
         async function closeChat() {
             if (!currentChat) {

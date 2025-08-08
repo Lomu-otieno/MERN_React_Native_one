@@ -170,10 +170,9 @@ router.get("/chat/:chatId", async (req, res) => {
 */
 router.post("/reply", async (req, res) => {
   try {
-    const { chatId, senderId, message, messageId, isAdmin } = req.body;
+    const { chatId, adminId, message, messageId } = req.body;
 
-    // Validate
-    if (!chatId || !senderId || !message) {
+    if (!chatId || !adminId || !message) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -183,42 +182,38 @@ router.post("/reply", async (req, res) => {
     // Handle reply to specific message
     if (messageId) {
       const target = chat.messages.id(messageId);
-      if (!target)
+      if (!target) {
         return res.status(404).json({ message: "Target message not found" });
+      }
 
       target.reply = {
-        sender: senderId,
+        sender: adminId,
         message,
         timestamp: new Date(),
         read: false,
-        isAdmin: Boolean(isAdmin),
+        isAdmin: true,
       };
-    }
-    // Handle new message
-    else {
+    } else {
+      // Fallback: push as a standalone admin message
       chat.messages.push({
-        sender: senderId,
+        sender: adminId,
         message,
         timestamp: new Date(),
         read: false,
-        isAdmin: Boolean(isAdmin),
+        isAdmin: true,
       });
     }
 
-    // Update chat status
-    if (isAdmin) {
-      chat.adminId = chat.adminId || senderId;
-      chat.status = "open";
-    }
-
+    chat.status = "open";
+    chat.adminId = chat.adminId || adminId;
     await chat.save();
 
     return res.status(201).json({
-      message: "Reply saved",
+      message: "Reply saved successfully",
       chatId: chat._id,
     });
   } catch (error) {
-    console.error("Reply error:", error);
+    console.error("Admin reply error:", error);
     res.status(500).json({
       message: "Failed to send reply",
       error: error.message,
