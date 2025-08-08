@@ -22,7 +22,7 @@
     },
     "android": {
       "splash": {
-        "image": "./assets/splash_icon.pngs",
+        "image": "./assets/splash_icon.png",
         "resizeMode": "cover",
         "backgroundColor": "#000"
       },
