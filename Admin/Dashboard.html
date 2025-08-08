@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Chat</title>
+  <link rel="stylesheet" href="Dashboard.css">
+  <style>
+    /* Loading spinner */
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid #3498db;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+      display: none;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Error message */
+    .error-message {
+      color: #e74c3c;
+      background: #fdecea;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      display: none;
+    }
+    
+    /* Debug info */
+    .debug-info {
+      font-size: 0.8rem;
+      color: #7f8c8d;
+      margin-top: 20px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      display: none;
+    }
+    
+    /* Message styles */
+    .msg.admin {
+      background-color: #e3f2fd;
+      border-left: 4px solid #2196F3;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .msg.user {
+      background-color: #e8f5e9;
+      border-left: 4px solid #4CAF50;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .message-time {
+      font-size: 0.8rem;
+      color: #757575;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="admin-chat-container">
+  <h1>Admin Chat</h1>
+  
+  <div class="chat-controls">
+    <label>Chat ID: <input id="chatId" placeholder="Enter chatId" value="6895ed409cbf2ef6152c41ac" /></label>
+    <button id="loadBtn" onclick="loadMessages()">Load Chat</button>
+  </div>
+  
+  <div class="spinner" id="loadingSpinner"></div>
+  <div class="error-message" id="errorMessage"></div>
+  
+  <div id="messages"></div>
+  
+  <div class="reply-area">
+    <input id="replyText" placeholder="Type your reply..." />
+    <button id="sendBtn" onclick="sendReply()">Send Reply</button>
+  </div>
+  
+  <div class="debug-info" id="debugInfo"></div>
+</div>
+
+<script>
+  const API_BASE = "https://lomu-dating-backend.onrender.com";
+  const ADMIN_ID = "lomu";
+  let currentChatId = "";
+  
+  // UI Elements
+  const loadingSpinner = document.getElementById('loadingSpinner');
+  const errorMessage = document.getElementById('errorMessage');
+  const loadBtn = document.getElementById('loadBtn');
+  const sendBtn = document.getElementById('sendBtn');
+  const debugInfo = document.getElementById('debugInfo');
+  
+  // Debug mode (set to true to see additional info)
+  const DEBUG_MODE = true;
+  
+  function showLoading(show) {
+    if (show) {
+      loadingSpinner.style.display = 'block';
+      loadBtn.disabled = true;
+      loadBtn.textContent = 'Loading...';
+    } else {
+      loadingSpinner.style.display = 'none';
+      loadBtn.disabled = false;
+      loadBtn.textContent = 'Load Chat';
+    }
+  }
+  
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.style.display = 'block';
+    setTimeout(() => {
+      errorMessage.style.display = 'none';
+    }, 5000);
+  }
+  
+  function updateDebugInfo(data) {
+    if (!DEBUG_MODE) return;
+    debugInfo.style.display = 'block';
+    debugInfo.innerHTML = `
+      <strong>Debug Info:</strong><br>
+      API Base: ${API_BASE}<br>
+      Admin ID: ${ADMIN_ID}<br>
+      Current Chat ID: ${currentChatId}<br>
+      Last Request: ${new Date().toLocaleTimeString()}<br>
+      ${data ? 'Response: ' + JSON.stringify(data, null, 2) : ''}
+    `;
+  }
+
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  }
+
+  async function loadMessages() {
+    const chatId = document.getElementById("chatId").value.trim();
+    if (!chatId) {
+      showError("Please enter a chat ID");
+      return;
+    }
+    
+    currentChatId = chatId;
+    showLoading(true);
+    errorMessage.style.display = 'none';
+    
+    try {
+      const res = await fetch(`${API_BASE}/chat/${chatId}`);
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+      }
+      
+      const chat = await res.json();
+      updateDebugInfo(chat);
+      
+      const box = document.getElementById("messages");
+      if (chat.messages && chat.messages.length > 0) {
+        box.innerHTML = chat.messages.map(m => {
+          const isAdmin = m.sender === ADMIN_ID;
+          const senderClass = isAdmin ? "admin" : "user";
+          const senderName = isAdmin ? "Admin" : "User";
+          
+          // Check if this is a reply to another message
+          if (m.reply) {
+            return `
+              <div class="msg ${senderClass}">
+                <div><strong>${senderName} replied:</strong> ${m.message}</div>
+                <div class="message-time">${formatDate(m.timestamp)}</div>
+              </div>`;
+          }
+          
+          return `
+            <div class="msg ${senderClass}">
+              <div><strong>${senderName}:</strong> ${m.message}</div>
+              <div class="message-time">${formatDate(m.timestamp)}</div>
+            </div>`;
+        }).join("");
+        
+        // Scroll to bottom of messages
+        box.scrollTop = box.scrollHeight;
+      } else {
+        box.innerHTML = '<div class="msg">No messages found in this chat</div>';
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      showError(`Failed to load chat: ${error.message}`);
+      updateDebugInfo({ error: error.message });
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  async function sendReply() {
+    if (!currentChatId) {
+      showError("Please load a chat first");
+      return;
+    }
+    
+    const message = document.getElementById("replyText").value.trim();
+    if (!message) {
+      showError("Please enter a message to send");
+      return;
+    }
+    
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
+    
+    try {
+      const res = await fetch(`${API_BASE}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          chatId: currentChatId, 
+          adminId: ADMIN_ID, 
+          message 
+        })
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+      }
+      
+      const responseData = await res.json();
+      updateDebugInfo(responseData);
+      
+      document.getElementById("replyText").value = "";
+      await loadMessages(); // Refresh messages
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      showError(`Failed to send reply: ${error.message}`);
+      updateDebugInfo({ error: error.message });
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send Reply';
+    }
+  }
+  
+  // Add keyboard support
+  document.getElementById('replyText').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      sendReply();
+    }
+  });
+  
+  document.getElementById('chatId').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      loadMessages();
+    }
+  });
+  
+  // Initialize with the chat ID you provided
+  window.onload = function() {
+    loadMessages();
+  };
+</script>
+
+</body>
+</html>

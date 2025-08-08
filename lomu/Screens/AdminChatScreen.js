@@ -8,8 +8,9 @@ import {
   StyleSheet,
 } from "react-native";
 import axios from "axios";
+import { BACKEND_URI } from "@env";
 
-const API_URL = "http://YOUR_BACKEND_URL/api/chatAdmin";
+const API_URL = `${BACKEND_URI}`;
 
 export default function AdminChatScreen({ route }) {
   const { chatId, adminId } = route.params;

@@ -5,7 +5,6 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-/* GET or create chat for user (updated populate to include reply sender) */
 router.get("/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -57,7 +56,6 @@ router.get("/user/:userId", async (req, res) => {
     });
   }
 });
-
 /* Send message (unchanged) */
 router.post("/send", async (req, res) => {
   try {
@@ -103,6 +101,66 @@ router.post("/send", async (req, res) => {
       error: error.message,
       code: "SERVER_ERROR",
     });
+  }
+});
+//all messages
+router.get("/messages/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        message: "User ID is required",
+        code: "MISSING_USER_ID",
+      });
+    }
+
+    const chat = await UserChat.findOne({ userId });
+
+    if (!chat) {
+      return res.status(404).json({
+        message: "No chat found for this user",
+        code: "CHAT_NOT_FOUND",
+      });
+    }
+
+    res.status(200).json({
+      messages: chat.messages,
+      chatId: chat._id,
+      status: chat.status,
+      message: "Messages retrieved successfully",
+    });
+  } catch (error) {
+    console.error("Message retrieval error:", error);
+    res.status(500).json({
+      message: "Failed to retrieve messages",
+      error: error.message,
+      code: "SERVER_ERROR",
+    });
+  }
+});
+
+// GET single chat messages
+router.get("/chat/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    const chat = await UserChat.findById(chatId);
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    res.status(200).json({
+      chatId: chat._id,
+      adminId: chat.adminId,
+      status: chat.status,
+      messages: chat.messages, // array of messages
+    });
+  } catch (error) {
+    console.error("Fetch chat error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch chat", error: error.message });
   }
 });
 
@@ -168,7 +226,6 @@ router.post("/reply", async (req, res) => {
     });
   }
 });
-
 /* GET admin replies for a specific chat
    Returns replies attached to messages and standalone admin messages.
 */
