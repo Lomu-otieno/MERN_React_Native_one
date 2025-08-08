@@ -1,143 +1,128 @@
-// routes/userChatRoutes.js
 import express from "express";
 import UserChat from "../models/UserChat.js";
 import User from "../models/User.js";
 
-const chat_router = express.Router();
+const router = express.Router();
 
-/**
- *  Start a new chat with admin
- *  POST /api/chats
- */
-
-chat_router.post("/", async (req, res) => {
+// Get or create chat for user
+router.get("/user/:userId", async (req, res) => {
   try {
-    const { userId, adminId, message } = req.body;
+    const { userId } = req.params;
 
-    if (!userId || !adminId || !message) {
-      return res.status(400).json({ message: "All fields are required" });
+    // Find existing chat or create new one with default admin
+    let chat = await UserChat.findOne({ userId })
+      .populate("userId", "name email")
+      .populate("adminId", "name email")
+      .populate("messages.sender", "name");
+
+    if (!chat) {
+      // Find first available admin (you might want to implement proper admin assignment logic)
+      const admin = await User.findOne({ role: "admin" });
+      if (!admin) {
+        return res.status(404).json({ message: "No admin available" });
+      }
+
+      chat = await UserChat.create({
+        userId,
+        adminId: admin._id,
+        messages: [],
+        status: "open",
+      });
     }
 
-    const newChat = await UserChat.create({
-      userId,
-      adminId,
-      messages: [{ sender: userId, message }],
+    res.json({
+      messages: chat.messages,
+      chatId: chat._id,
+      status: chat.status,
     });
-
-    res.status(201).json(newChat);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Chat fetch error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch chat", error: error.message });
   }
 });
 
-/**
- *  Get all chats for a specific user
- *  GET /api/chats/:userId
- */
-chat_router.get("/:userId", async (req, res) => {
+// Send message
+router.post("/send", async (req, res) => {
   try {
-    const chats = await UserChat.find({ userId: req.params.userId })
-      .populate("adminId", "username email")
-      .populate("messages.sender", "username email");
-    res.json(chats);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+    const { userId, message } = req.body;
 
-/**
- *  Get all chats for admin
- *  GET /api/chats/admin/:adminId
- */
-chat_router.get("/admin/:adminId", async (req, res) => {
-  try {
-    const chats = await UserChat.find({ adminId: req.params.adminId })
-      .populate("userId", "username email")
-      .populate("messages.sender", "username email");
-    res.json(chats);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-/**
- *  Send a message in a chat
- *  POST /api/chats/:chatId/message
- */
-chat_router.post("/:chatId/message", async (req, res) => {
-  try {
-    const { senderId, message } = req.body;
-
-    if (!senderId || !message) {
+    if (!userId || !message) {
       return res
         .status(400)
-        .json({ message: "Sender and message are required" });
+        .json({ message: "User ID and message are required" });
     }
 
-    const chat = await UserChat.findById(req.params.chatId);
-    if (!chat) return res.status(404).json({ message: "Chat not found" });
+    // Find existing chat
+    let chat = await UserChat.findOne({ userId });
 
-    chat.messages.push({ sender: senderId, message });
-    await chat.save();
+    if (!chat) {
+      // Find first available admin
+      const admin = await User.findOne({ role: "admin" });
+      if (!admin) {
+        return res.status(404).json({ message: "No admin available" });
+      }
 
-    res.status(200).json(chat);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-/**
- *  Mark messages as read
- *  PATCH /api/chats/:chatId/read
- */
-chat_router.patch("/:chatId/read", async (req, res) => {
-  try {
-    const chat = await UserChat.findById(req.params.chatId);
-    if (!chat) return res.status(404).json({ message: "Chat not found" });
-
-    chat.messages.forEach((msg) => (msg.read = true));
-    await chat.save();
-
-    res.json({ message: "All messages marked as read", chat });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-/**
- *  Change chat status
- *  PATCH /api/chats/:chatId/status
- */
-chat_router.patch("/:chatId/status", async (req, res) => {
-  try {
-    const { status } = req.body;
-    if (!["open", "closed"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
+      chat = await UserChat.create({
+        userId,
+        adminId: admin._id,
+        messages: [],
+        status: "open",
+      });
     }
 
-    const chat = await UserChat.findByIdAndUpdate(
-      req.params.chatId,
-      { status },
-      { new: true }
-    );
+    // Add new message
+    const newMessage = {
+      sender: userId,
+      message,
+      timestamp: new Date(),
+      read: false,
+    };
 
-    res.json(chat);
+    chat.messages.push(newMessage);
+    await chat.save();
+
+    // You might want to implement real-time notifications here
+
+    res.status(201).json({
+      newMessage,
+      chatId: chat._id,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Message send error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to send message", error: error.message });
   }
 });
 
-/**
- *  Delete a chat (admin only)
- *  DELETE /api/chats/:chatId
- */
-chat_router.delete("/:chatId", async (req, res) => {
+// Mark messages as read
+router.patch("/:chatId/read", async (req, res) => {
   try {
-    await UserChat.findByIdAndDelete(req.params.chatId);
-    res.json({ message: "Chat deleted" });
+    const { chatId } = req.params;
+
+    const chat = await UserChat.findById(chatId);
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    // Mark all admin messages as read
+    chat.messages.forEach((msg) => {
+      if (msg.sender.toString() !== chat.userId.toString()) {
+        msg.read = true;
+      }
+    });
+
+    await chat.save();
+    res.json({ message: "Messages marked as read" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Mark read error:", error);
+    res.status(500).json({
+      message: "Failed to mark messages as read",
+      error: error.message,
+    });
   }
 });
 
-export default chat_router;
+export default router;

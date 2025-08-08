@@ -8,58 +8,80 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
+import { BACKEND_URI } from "@env";
 
-const UserAdminChatScreen = () => {
+const UserAdminChatScreen = ({ route }) => {
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
   const [userId, setUserId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const flatListRef = useRef(null);
 
-  const API_URL = process.env.EXPO_PUBLIC_API_URL; // hide server link here
-
-  // Fetch userId from storage
+  // Fetch userId from storage and load messages
   useEffect(() => {
-    (async () => {
-      const storedUserId = await AsyncStorage.getItem("userId");
-      setUserId(storedUserId);
-      if (storedUserId) {
-        fetchMessages(storedUserId);
+    const initializeChat = async () => {
+      try {
+        const storedUserId = await AsyncStorage.getItem("userId");
+        if (!storedUserId) {
+          setError("User not authenticated");
+          return;
+        }
+
+        setUserId(storedUserId);
+        await fetchMessages(storedUserId);
+      } catch (err) {
+        console.error("Initialization error:", err);
+        setError("Failed to initialize chat");
       }
-    })();
+    };
+
+    initializeChat();
   }, []);
 
   // Fetch messages
   const fetchMessages = async (id) => {
     try {
-      const res = await axios.get(`${API_URL}/api/user-chats/${id}`);
+      setLoading(true);
+      const res = await axios.get(`${BACKEND_URI}/api/chatAdmin/user/${id}`);
       setMessages(res.data.messages);
+      setError(null);
     } catch (error) {
-      console.log("Error fetching messages:", error.response?.data || error);
+      console.error("Fetch error:", error.response?.data || error);
+      setError("Failed to load messages");
+    } finally {
+      setLoading(false);
     }
   };
 
   // Send message
   const sendMessage = async () => {
-    if (!messageText.trim()) return;
+    if (!messageText.trim() || !userId) return;
 
     try {
-      const res = await axios.post(`${API_URL}/api/user-chats/send`, {
+      setLoading(true);
+      const res = await axios.post(`${BACKEND_URI}/api/chatAdmin/send`, {
         userId,
         message: messageText,
       });
+
       setMessages((prev) => [...prev, res.data.newMessage]);
       setMessageText("");
       flatListRef.current?.scrollToEnd({ animated: true });
     } catch (error) {
-      console.log("Error sending message:", error.response?.data || error);
+      console.error("Send error:", error.response?.data || error);
+      setError("Failed to send message");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Render each message bubble
+  // Render each message
   const renderItem = ({ item }) => {
     const isUser = item.sender === userId;
     return (
@@ -69,9 +91,14 @@ const UserAdminChatScreen = () => {
           isUser ? styles.userMessage : styles.adminMessage,
         ]}
       >
-        <Text style={styles.messageText}>{item.message}</Text>
+        <Text style={isUser ? styles.userMessageText : styles.adminMessageText}>
+          {item.message}
+        </Text>
         <Text style={styles.timestamp}>
-          {new Date(item.timestamp).toLocaleTimeString()}
+          {new Date(item.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </Text>
       </View>
     );
@@ -80,86 +107,143 @@ const UserAdminChatScreen = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={90}
     >
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => index.toString()}
-        onContentSizeChange={() =>
-          flatListRef.current?.scrollToEnd({ animated: true })
-        }
-      />
+      <StatusBar barStyle="light-content" />
 
-      {/* Message Input */}
+      {loading && messages.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF0050" />
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => fetchMessages(userId)}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderItem}
+          keyExtractor={(item) => item._id || Date.now().toString()}
+          contentContainerStyle={styles.messagesList}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
+          }
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        />
+      )}
+
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Type a message..."
+          placeholder="Type your message..."
+          placeholderTextColor="#999"
           value={messageText}
           onChangeText={setMessageText}
+          editable={!loading}
+          multiline
         />
-        <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-          <Ionicons name="send" size={20} color="white" />
+        <TouchableOpacity
+          style={styles.sendButton}
+          onPress={sendMessage}
+          disabled={!messageText.trim() || loading}
+        >
+          <Ionicons
+            name="send"
+            size={24}
+            color={!messageText.trim() || loading ? "#666" : "#FF0050"}
+          />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 };
 
-export default UserAdminChatScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#121212",
   },
-  messageContainer: {
-    padding: 10,
-    marginVertical: 4,
-    marginHorizontal: 8,
-    borderRadius: 8,
-    maxWidth: "80%",
-  },
-  userMessage: {
-    alignSelf: "flex-end",
-    backgroundColor: "#4CAF50",
-  },
-  adminMessage: {
-    alignSelf: "flex-start",
-    backgroundColor: "#ddd",
-  },
-  messageText: {
-    fontSize: 16,
-    color: "#000",
-  },
-  timestamp: {
-    fontSize: 10,
-    color: "#666",
-    marginTop: 4,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    padding: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#ddd",
-    backgroundColor: "#f9f9f9",
-  },
-  input: {
+  loadingContainer: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-  },
-  sendButton: {
-    backgroundColor: "#007BFF",
-    borderRadius: 20,
-    padding: 10,
     justifyContent: "center",
     alignItems: "center",
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    color: "#FF0050",
+    fontSize: 16,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  retryText: {
+    color: "#FF0050",
+    fontSize: 16,
+    textDecorationLine: "underline",
+  },
+  messagesList: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+  },
+  messageContainer: {
+    maxWidth: "80%",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  userMessage: {
+    alignSelf: "flex-end",
+    backgroundColor: "#FF0050",
+    borderTopRightRadius: 0,
+  },
+  adminMessage: {
+    alignSelf: "flex-start",
+    backgroundColor: "#2A2A2A",
+    borderTopLeftRadius: 0,
+  },
+  userMessageText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+  },
+  adminMessageText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+  },
+  timestamp: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.6)",
+    marginTop: 4,
+    alignSelf: "flex-end",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    padding: 10,
+    backgroundColor: "#1E1E1E",
+    alignItems: "center",
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "#2A2A2A",
+    color: "#FFFFFF",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginRight: 10,
+    maxHeight: 100,
+  },
+  sendButton: {
+    padding: 10,
+  },
 });
+
+export default UserAdminChatScreen;

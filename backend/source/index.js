@@ -6,7 +6,7 @@ import usersRoutes from "./routes/users.js";
 import passwordRoutes from "./routes/password.js";
 import settingsRoutes from "./routes/settings.js";
 import errorHandler from "./middleware/errorHandler.js";
-import chat_router from "./routes/chatRoutes.js";
+import chatRoutes from "./routes/chatRoutes.js";
 import "./lib/keepAlive.js";
 import cors from "cors";
 import helmet from "helmet";
@@ -49,7 +49,7 @@ const PORT = process.env.PORT || 3001;
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", usersRoutes);
-app.use("api/chatAdmin", chat_router);
+app.use("/api/chatAdmin", chatRoutes);
 app.use("/api/password", passwordRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use(errorHandler);

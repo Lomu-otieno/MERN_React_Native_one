@@ -21,8 +21,8 @@ const messageSchema = new mongoose.Schema(
       default: false,
     },
   },
-  { _id: false }
-);
+  { _id: true }
+); // Keep _id for individual messages
 
 const userChatSchema = new mongoose.Schema(
   {
@@ -30,23 +30,34 @@ const userChatSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      unique: true, // One chat per user
     },
     adminId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // or "Admin" if you create a separate model
+      ref: "User",
       required: true,
     },
-    messages: {
-      type: [messageSchema],
-      default: [],
-    },
+    messages: [messageSchema],
     status: {
       type: String,
       enum: ["open", "closed"],
       default: "open",
     },
+    lastActivity: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("UserChat", userChatSchema);
+// Update lastActivity when messages change
+userChatSchema.pre("save", function (next) {
+  if (this.isModified("messages")) {
+    this.lastActivity = new Date();
+  }
+  next();
+});
+
+const UserChat = mongoose.model("UserChat", userChatSchema);
+export default UserChat;
