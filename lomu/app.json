@@ -8,13 +8,13 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash_icon.png",
       "resizeMode": "cover",
       "backgroundColor": "#000"
     },
     "ios": {
       "splash": {
-        "image": "./assets/splash-icon.png",
+        "image": "./assets/splash_lomu.png",
         "resizeMode": "cover",
         "backgroundColor": "#000"
       },
@@ -22,7 +22,7 @@
     },
     "android": {
       "splash": {
-        "image": "./assets/splash-icon.png",
+        "image": "./assets/splash_icon.pngs",
         "resizeMode": "cover",
         "backgroundColor": "#000"
       },

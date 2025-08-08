@@ -45,9 +45,9 @@ router.get("/user/:userId", async (req, res) => {
 
       if (!admin) {
         return res.status(503).json({
-          message:
-            "No support staff available at the moment. Please try again later.",
-          code: "NO_ADMIN_AVAILABLE",
+          // message:
+          //   "No support staff available at the moment. Please try again later.",
+          // code: "NO_ADMIN_AVAILABLE",
         });
       }
 
