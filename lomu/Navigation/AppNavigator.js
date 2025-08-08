@@ -13,6 +13,7 @@ import UserMatch from "../Screens/UserMatch";
 import EditProfileScreen from "../Screens/EditProfileScreen";
 import SetGenderScreen from "../Screens/SetGenderScreen";
 import UserAdminChatScreen from "../Screens/UserAdminChatScreen";
+import AdminChatScreen from "../Screens/AdminChatScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -73,6 +74,12 @@ const AppNavigator = () => (
       <Stack.Screen
         name="UserAdminChatScreen"
         component={UserAdminChatScreen}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="AdminChatScreen"
+        component={AdminChatScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

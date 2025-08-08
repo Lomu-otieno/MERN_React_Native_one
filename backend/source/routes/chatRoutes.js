@@ -5,8 +5,6 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-/* --- unchanged helper getAvailableAdmin() --- */
-
 /* GET or create chat for user (updated populate to include reply sender) */
 router.get("/user/:userId", async (req, res) => {
   try {
