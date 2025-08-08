@@ -35,13 +35,12 @@ const userChatSchema = new mongoose.Schema(
     adminId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
     messages: [messageSchema],
     status: {
       type: String,
-      enum: ["open", "closed"],
-      default: "open",
+      enum: ["open", "closed", "pending"],
+      default: "pending",
     },
     lastActivity: {
       type: Date,

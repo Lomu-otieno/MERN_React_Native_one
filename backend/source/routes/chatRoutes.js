@@ -7,26 +7,27 @@ const router = express.Router();
 
 // Get or create chat for user
 const getAvailableAdmin = async () => {
-  // 1. First try to find an active admin with the least chats
-  const admin = await User.aggregate([
-    { $match: { role: "admin", isActive: true } },
-    {
-      $lookup: {
-        from: "userchats",
-        localField: "_id",
-        foreignField: "adminId",
-        as: "chats",
+  try {
+    const admin = await User.aggregate([
+      { $match: { role: "admin", isActive: true } },
+      {
+        $lookup: {
+          from: "userchats",
+          localField: "_id",
+          foreignField: "adminId",
+          as: "chats",
+        },
       },
-    },
-    { $addFields: { chatCount: { $size: "$chats" } } },
-    { $sort: { chatCount: 1 } },
-    { $limit: 1 },
-  ]);
+      { $addFields: { chatCount: { $size: "$chats" } } },
+      { $sort: { chatCount: 1 } },
+      { $limit: 1 },
+    ]);
 
-  if (admin.length > 0) return admin[0];
-
-  // 2. Fallback to any admin if none are marked active
-  return await User.findOne({ role: "admin" });
+    return admin.length > 0 ? admin[0] : null;
+  } catch (error) {
+    console.error("Error finding admin:", error);
+    return null;
+  }
 };
 
 // Get or create chat for user
@@ -47,11 +48,14 @@ router.get("/user/:userId", async (req, res) => {
       .populate("messages.sender", "name");
 
     if (!chat) {
-      // Create empty chat if none exists
+      // Find an available admin or create chat without one
+      const admin = await getAvailableAdmin();
+
       chat = await UserChat.create({
         userId,
+        adminId: admin?._id || null, // Make adminId optional
         messages: [],
-        status: "pending",
+        status: admin ? "open" : "pending",
       });
     }
 

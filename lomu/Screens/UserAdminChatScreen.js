@@ -101,10 +101,13 @@ const UserAdminChatScreen = ({ navigation }) => {
   const sendMessage = async () => {
     if (!messageText.trim() || !userId) return;
 
+    // Create temp ID here so it's available in catch block
+    const tempId = Date.now().toString();
+
     try {
       setLoading(true);
       const newMessage = {
-        _id: Date.now().toString(),
+        _id: tempId,
         sender: userId,
         message: messageText,
         timestamp: new Date(),
@@ -136,7 +139,7 @@ const UserAdminChatScreen = ({ navigation }) => {
       console.error("Send error:", error);
       Alert.alert("Error", "Failed to send message. Please try again.");
       // Remove the optimistic update if failed
-      setMessages((prev) => prev.filter((msg) => msg._id !== newMessage._id));
+      setMessages((prev) => prev.filter((msg) => msg._id !== tempId));
     } finally {
       setLoading(false);
     }
