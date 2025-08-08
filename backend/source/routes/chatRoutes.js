@@ -24,43 +24,6 @@ router.get("/chats", async (req, res) => {
   }
 });
 
-// Get a specific chat with messages
-router.get("/:chatId", async (req, res) => {
-  try {
-    const { chatId } = req.params;
-
-    if (!isValidObjectId(chatId)) {
-      return res.status(400).json({ message: "Invalid chat ID" });
-    }
-
-    const chat = await UserChat.findById(chatId)
-      .populate("userId", "name email")
-      .populate("adminId", "name email");
-
-    if (!chat) {
-      return res.status(404).json({ message: "Chat not found" });
-    }
-
-    const messagesWithAdminFlag = chat.messages.map((msg) => ({
-      ...msg.toObject(),
-      isAdmin: msg.sender.toString() === chat.adminId?.toString(),
-    }));
-
-    res.status(200).json({
-      chatId: chat._id,
-      userId: chat.userId,
-      adminId: chat.adminId,
-      status: chat.status,
-      messages: chat.messages,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Failed to fetch chat",
-      error: error.message,
-    });
-  }
-});
-
 // User sends a message
 router.post("/send", async (req, res) => {
   try {
@@ -104,6 +67,64 @@ router.post("/send", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Failed to send message",
+      error: error.message,
+    });
+  }
+});
+router.get("/messages/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!isValidObjectId(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const chat = await UserChat.findOne({ userId });
+
+    if (!chat) {
+      return res.status(404).json({
+        message: "No chat found for this user",
+      });
+    }
+
+    res.status(200).json({
+      message: "Messages retrieved successfully",
+      messages: chat.messages,
+      status: chat.status,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to retrieve messages",
+      error: error.message,
+    });
+  }
+});
+// Get a specific chat with messages
+router.get("/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    if (!isValidObjectId(chatId)) {
+      return res.status(400).json({ message: "Invalid chat ID" });
+    }
+
+    const chat = await UserChat.findById(chatId)
+      .populate("userId", "name email")
+      .populate("adminId", "name email");
+
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+    res.status(200).json({
+      chatId: chat._id,
+      userId: chat.userId,
+      adminId: chat.adminId,
+      status: chat.status,
+      messages: chat.messages,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch chat",
       error: error.message,
     });
   }
