@@ -167,6 +167,38 @@ router.post("/reply", async (req, res) => {
     });
   }
 });
+// GET admin replies for a specific chat
+router.get("/reply/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    if (!chatId) {
+      return res.status(400).json({ message: "Chat ID is required" });
+    }
+
+    const chat = await UserChat.findById(chatId);
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    // Filter only admin messages
+    const adminReplies = chat.messages.filter(
+      (msg) => msg.sender.toString() === chat.adminId?.toString()
+    );
+
+    res.status(200).json({
+      chatId: chat._id,
+      adminId: chat.adminId,
+      replies: adminReplies,
+    });
+  } catch (error) {
+    console.error("Error fetching admin replies:", error);
+    res.status(500).json({
+      message: "Failed to fetch admin replies",
+      error: error.message,
+    });
+  }
+});
 
 // Mark messages as read
 router.patch("/:chatId/read", async (req, res) => {
