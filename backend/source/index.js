@@ -15,44 +15,39 @@ import rateLimit from "express-rate-limit";
 
 const app = express();
 
+// Middleware
 app.set("trust proxy", 1);
-app.use(express.json()); // Important for parsing req.body
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(compression());
+app.use(helmet());
 
+// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
 });
-
 app.use(limiter);
 
-app.use(compression());
-
-app.get("/healthz", (req, res) => {
-  res.send("API is running...");
-});
-
-app.get("/", (req, res) => {
-  res.send("Server is running.");
-});
-
+// CORS configuration
 app.use(
   cors({
-    origin: ["http://localhost:5500", process.env.FRONTEND_URL], // Allow both localhost and your production frontend
+    origin: ["http://localhost:5500", process.env.FRONTEND_URL],
     credentials: true,
   })
 );
-app.use(helmet()); // Add secure HTTP headers
-app.use(express.urlencoded({ extended: true })); // For parsing form data
 
-const PORT = process.env.PORT || 3001;
+// Routes
+app.get("/healthz", (req, res) => res.send("API is running..."));
+app.get("/", (req, res) => res.send("Server is running."));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/chatAdmin", chatRoutes);
 app.use("/api/password", passwordRoutes);
 app.use("/api/settings", settingsRoutes);
-app.use(errorHandler);
 
+// Configuration endpoint
 app.get("/api/config", (req, res) => {
   res.json({
     SERVER_URL: process.env.SERVER_URL,
@@ -60,6 +55,11 @@ app.get("/api/config", (req, res) => {
   });
 });
 
+// Error handling
+app.use(errorHandler);
+
+// Start server
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   connectDB();
