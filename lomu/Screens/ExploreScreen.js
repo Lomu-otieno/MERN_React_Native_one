@@ -17,12 +17,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { BACKEND_URI } from "@env";
 
 const SERVER_URL = `${BACKEND_URI}`;
 const { width, height } = Dimensions.get("window");
 
 const ExploreScreen = () => {
+  const navigation = useNavigation();
   // Refs
   const swiperRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -184,12 +186,16 @@ const ExploreScreen = () => {
             color="white"
             style={styles.icon}
           />
-          {/* <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={24}
-            color="white"
-            style={styles.icon}
-          /> */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate("UserAdminChatScreen")} // Add this
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={24}
+              color="white"
+              style={styles.icon}
+            />
+          </TouchableOpacity>
         </View>
       </View>
       <View style={styles.container}>
