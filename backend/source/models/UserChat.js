@@ -39,14 +39,20 @@ const messageSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    isAdmin: { type: Boolean, default: false },
     read: {
       type: Boolean,
       default: false,
     },
-    // <-- new reply field (optional)
-    reply: replySchema,
+    reply: {
+      sender: String,
+      message: String,
+      timestamp: Date,
+      read: Boolean,
+      isAdmin: Boolean,
+    },
   },
-  { _id: true } // keep _id for messages
+  { _id: true }
 );
 
 const userChatSchema = new mongoose.Schema(

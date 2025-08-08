@@ -170,19 +170,26 @@ router.get("/chat/:chatId", async (req, res) => {
 */
 router.post("/reply", async (req, res) => {
   try {
+    console.log("Received request body:", req.body); // Debug log
+
     const { chatId, adminId, message, messageId } = req.body;
 
     if (!chatId || !adminId || !message) {
+      console.log("Missing fields:", { chatId, adminId, message }); // Debug log
       return res.status(400).json({ message: "Missing required fields" });
     }
 
     const chat = await UserChat.findById(chatId);
-    if (!chat) return res.status(404).json({ message: "Chat not found" });
+    if (!chat) {
+      console.log("Chat not found:", chatId); // Debug log
+      return res.status(404).json({ message: "Chat not found" });
+    }
 
     // Handle reply to specific message
     if (messageId) {
       const target = chat.messages.id(messageId);
       if (!target) {
+        console.log("Target message not found:", messageId); // Debug log
         return res.status(404).json({ message: "Target message not found" });
       }
 
@@ -208,6 +215,7 @@ router.post("/reply", async (req, res) => {
     chat.adminId = chat.adminId || adminId;
     await chat.save();
 
+    console.log("Reply saved successfully for chat:", chatId); // Debug log
     return res.status(201).json({
       message: "Reply saved successfully",
       chatId: chat._id,
