@@ -127,6 +127,47 @@ router.post("/send", async (req, res) => {
   }
 });
 
+// POST: Admin replies to user
+router.post("/reply", async (req, res) => {
+  try {
+    const { chatId, adminId, message } = req.body;
+
+    if (!chatId || !adminId || !message) {
+      return res.status(400).json({
+        message: "Chat ID, Admin ID, and message are required",
+      });
+    }
+
+    const chat = await UserChat.findById(chatId);
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    const newMessage = {
+      sender: adminId,
+      message,
+      timestamp: new Date(),
+      read: false,
+    };
+
+    chat.messages.push(newMessage);
+    chat.status = "open";
+    chat.adminId = chat.adminId || adminId; // Assign if not already set
+    await chat.save();
+
+    res.status(201).json({
+      newMessage,
+      message: "Reply sent successfully",
+    });
+  } catch (error) {
+    console.error("Admin reply error:", error);
+    res.status(500).json({
+      message: "Failed to send reply",
+      error: error.message,
+    });
+  }
+});
+
 // Mark messages as read
 router.patch("/:chatId/read", async (req, res) => {
   try {

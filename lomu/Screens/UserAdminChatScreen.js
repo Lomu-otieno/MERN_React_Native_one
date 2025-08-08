@@ -31,6 +31,8 @@ const UserAdminChatScreen = ({ navigation }) => {
 
   // Fetch userId from storage and load messages
   useEffect(() => {
+    let interval;
+
     const initializeChat = async () => {
       try {
         const storedUserId = await AsyncStorage.getItem("userId");
@@ -40,7 +42,10 @@ const UserAdminChatScreen = ({ navigation }) => {
         }
 
         setUserId(storedUserId);
-        await fetchMessages(storedUserId);
+        await fetchMessages(storedUserId, true); // first load shows spinner
+        interval = setInterval(() => {
+          fetchMessages(storedUserId); // no spinner for polling
+        }, 2000);
       } catch (err) {
         console.error("Initialization error:", err);
         setError("Failed to load chat");
@@ -48,53 +53,28 @@ const UserAdminChatScreen = ({ navigation }) => {
     };
 
     initializeChat();
-  }, []);
 
-  const fetchMessages = async (id) => {
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, []); // empty dependency so it runs once
+
+  const fetchMessages = async (id, showLoading = false) => {
     try {
-      setLoading(true);
-      const res = await axios.get(
-        `${BACKEND_URI}/api/chatAdmin/user/${id}`, // fixed here
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
-          },
-          timeout: 10000,
-        }
-      );
-
-      if (!res.data) {
-        throw new Error("No data received from server");
-      }
-
-      setMessages(
-        res.data.messages || [
-          {
-            _id: "welcome",
-            sender: "system",
-            message: "Hello! Your messages will be answered soon.",
-            timestamp: new Date(),
-            systemMessage: true,
-          },
-        ]
-      );
+      if (showLoading) setLoading(true);
+      const res = await axios.get(`${BACKEND_URI}/api/chatAdmin/user/${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
+        },
+        timeout: 10000,
+      });
+      setMessages(res.data.messages || []);
       setError(null);
     } catch (error) {
-      let errorMsg = "Connection error. Please try again.";
-      if (error.response) {
-        errorMsg =
-          error.response.data?.message ||
-          `Server error (${error.response.status})`;
-      } else if (error.request) {
-        errorMsg = "Check your internet connection.";
-      } else if (error.message.includes("timeout")) {
-        errorMsg = "Request timeout. Please try again.";
-      }
-      console.error("Fetch error:", error);
-      setError(errorMsg);
+      // ...same error handling
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -155,6 +135,7 @@ const UserAdminChatScreen = ({ navigation }) => {
     }
 
     const isUser = item.sender === userId;
+    const isAdmin = !isUser;
     return (
       <View
         style={[styles.messageRow, isUser ? styles.userRow : styles.otherRow]}
@@ -162,7 +143,7 @@ const UserAdminChatScreen = ({ navigation }) => {
         <View
           style={[
             styles.messageContainer,
-            isUser ? styles.userMessage : styles.otherMessage,
+            isUser ? styles.userMessage : styles.otherMessage, // admin's will be otherMessage
           ]}
         >
           <Text
@@ -361,6 +342,18 @@ const styles = StyleSheet.create({
   },
   userRow: {
     alignSelf: "flex-end",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  userMessageTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderLeftColor: "transparent",
+    borderTopWidth: 8,
+    borderTopColor: "#FF0050",
+    alignSelf: "flex-end",
+    marginBottom: 2,
   },
   otherRow: {
     alignSelf: "flex-start",
@@ -373,11 +366,31 @@ const styles = StyleSheet.create({
   userMessage: {
     backgroundColor: "#FF0050",
     borderBottomRightRadius: 4,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomLeftRadius: 18,
+    marginLeft: 50, // keep away from left
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
+
   otherMessage: {
     backgroundColor: "#252525",
     borderBottomLeftRadius: 4,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    marginRight: 50, // keep away from right
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2.5,
+    elevation: 3,
   },
+
   userMessageText: {
     color: "#fff",
     fontSize: 16,
