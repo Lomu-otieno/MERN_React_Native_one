@@ -1,72 +1,62 @@
 import express from "express";
 import UserChat from "../models/UserChat.js";
 import mongoose from "mongoose";
-import User from "../models/User.js";
 
 const router = express.Router();
 
-function validateObjectId(req, res, next) {
-  if (
-    !mongoose.Types.ObjectId.isValid(req.body.chatId) ||
-    !mongoose.Types.ObjectId.isValid(req.body.adminId)
-  ) {
-    return res.status(400).json({ message: "Invalid ID format" });
-  }
-  next();
-}
+// Helper function to validate ObjectId
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-router.get("/user/:userId", async (req, res) => {
+// Get all chats (for admin panel)
+
+router.get("/chats", async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        message: "Invalid user ID",
-        code: "INVALID_ID",
-      });
-    }
-
-    let chat = await UserChat.findOne({ userId })
-      .populate("userId", "name email profileImage")
-      .populate("adminId", "name email profileImage")
-      // populate both message sender and reply sender
-      .populate("messages.sender", "name email profileImage")
-      .populate("messages.reply.sender", "name email profileImage");
-
-    if (!chat) {
-      const admin = await getAvailableAdmin();
-
-      chat = await UserChat.create({
-        userId,
-        adminId: admin?._id || null,
-        messages: [],
-        status: admin ? "open" : "pending",
-      });
-
-      // populate newly created chat for response
-      chat = await UserChat.findById(chat._id)
-        .populate("userId", "name email profileImage")
-        .populate("adminId", "name email profileImage")
-        .populate("messages.sender", "name email profileImage")
-        .populate("messages.reply.sender", "name email profileImage");
-    }
-
-    res.json({
-      messages: chat.messages,
-      chatId: chat._id,
-      status: chat.status,
-      admin: chat.adminId || null,
-    });
+    const chats = await UserChat.find()
+      .sort({ updatedAt: -1 })
+      .populate("userId", "name email")
+      .populate("adminId", "name email");
+    res.status(200).json({ chats });
   } catch (error) {
-    console.error("Chat fetch error:", error);
     res.status(500).json({
-      message: "Failed to fetch chat",
+      message: "Failed to fetch chats",
       error: error.message,
-      code: "SERVER_ERROR",
     });
   }
 });
-/* Send message (unchanged) */
+
+// Get a specific chat with messages
+router.get("/:chatId", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    if (!isValidObjectId(chatId)) {
+      return res.status(400).json({ message: "Invalid chat ID" });
+    }
+
+    const chat = await UserChat.findById(chatId)
+      .populate("userId", "name email")
+      .populate("adminId", "name email");
+
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    res.status(200).json({
+      chatId: chat._id,
+      userId: chat.userId,
+      adminId: chat.adminId,
+      status: chat.status,
+      messages: chat.messages,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch chat",
+      error: error.message,
+    });
+  }
+});
+
+// User sends a message
 router.post("/send", async (req, res) => {
   try {
     const { userId, message } = req.body;
@@ -74,8 +64,11 @@ router.post("/send", async (req, res) => {
     if (!userId || !message) {
       return res.status(400).json({
         message: "User ID and message are required",
-        code: "MISSING_FIELDS",
       });
+    }
+
+    if (!isValidObjectId(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
     }
 
     let chat = await UserChat.findOne({ userId });
@@ -99,221 +92,106 @@ router.post("/send", async (req, res) => {
     await chat.save();
 
     res.status(201).json({
+      message: "Message sent successfully",
+      chatId: chat._id,
       newMessage,
-      chatId: chat._id,
-      status: chat.status,
-      message: "Message received. Admin will respond when available.",
     });
   } catch (error) {
-    console.error("Message send error:", error);
     res.status(500).json({
-      message: "Failed to save message",
+      message: "Failed to send message",
       error: error.message,
-      code: "SERVER_ERROR",
-    });
-  }
-});
-//all messages
-router.get("/messages/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({
-        message: "User ID is required",
-        code: "MISSING_USER_ID",
-      });
-    }
-
-    const chat = await UserChat.findOne({ userId });
-
-    if (!chat) {
-      return res.status(404).json({
-        message: "No chat",
-        code: "CHAT_NOT_FOUND",
-      });
-    }
-
-    res.status(200).json({
-      messages: chat.messages,
-      chatId: chat._id,
-      status: chat.status,
-      message: "Messages retrieved successfully",
-    });
-  } catch (error) {
-    console.error("Message retrieval error:", error);
-    res.status(500).json({
-      message: "Failed to retrieve messages",
-      error: error.message,
-      code: "SERVER_ERROR",
     });
   }
 });
 
-// GET single chat messages
-router.get("/chat/:chatId", async (req, res) => {
-  try {
-    const { chatId } = req.params;
-
-    const chat = await UserChat.findById(chatId);
-    if (!chat) {
-      return res.status(404).json({ message: "Chat not found" });
-    }
-
-    res.status(200).json({
-      chatId: chat._id,
-      adminId: chat.adminId,
-      status: chat.status,
-      messages: chat.messages, // array of messages
-    });
-  } catch (error) {
-    console.error("Fetch chat error:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to fetch chat", error: error.message });
-  }
-});
-
-/* POST: Admin replies — now supports replying to a specific messageId (reply field)
-   If messageId is provided, set reply on that message.
-   If messageId is omitted, push a standalone admin message into messages[] (backwards-compatible).
-*/
+// Admin sends a reply (either new message or reply to existing)
 router.post("/reply", async (req, res) => {
   try {
     const { chatId, message, messageId } = req.body;
-    const adminId = process.env.ADMIN_ID; // Make sure this is set in your environment
+    const adminId = process.env.ADMIN_ID; // Set in your environment
 
     if (!chatId || !message) {
       return res.status(400).json({
-        message: "Missing required fields",
-        required: ["chatId", "message"],
+        message: "Chat ID and message are required",
       });
     }
 
-    // Validate chatId format
-    if (!mongoose.Types.ObjectId.isValid(chatId)) {
-      return res.status(400).json({ message: "Invalid chat ID format" });
+    if (!isValidObjectId(chatId)) {
+      return res.status(400).json({ message: "Invalid chat ID" });
     }
 
     const chat = await UserChat.findById(chatId);
-    if (!chat) return res.status(404).json({ message: "Chat not found" });
-
-    // Create new message with proper sender
-    const newMessage = {
-      sender: new mongoose.Types.ObjectId(adminId), // Convert to ObjectId
-      message,
-      timestamp: new Date(),
-      read: false,
-      isAdmin: true,
-    };
-
-    if (messageId) {
-      const target = chat.messages.id(messageId);
-      if (!target) {
-        return res.status(404).json({ message: "Target message not found" });
-      }
-      // For replies, we'll use the reply schema which doesn't require sender
-      target.reply = {
-        message,
-        timestamp: new Date(),
-        read: false,
-      };
-    } else {
-      chat.messages.push(newMessage);
-    }
-
-    chat.status = "open";
-    chat.adminId = chat.adminId || new mongoose.Types.ObjectId(adminId);
-    await chat.save();
-
-    return res.status(201).json({
-      message: "Reply saved successfully",
-      chatId: chat._id,
-      newMessage: messageId ? target.reply : newMessage,
-    });
-  } catch (error) {
-    console.error("Reply error:", error);
-    res.status(500).json({
-      message: "Failed to process reply",
-      error: error.message,
-    });
-  }
-});
-/* GET admin replies for a specific chat
-   Returns replies attached to messages and standalone admin messages.
-*/
-router.get("/reply/:chatId", async (req, res) => {
-  try {
-    const { chatId } = req.params;
-    const adminId = process.env.ADMIN_ID;
-
-    if (!chatId || !mongoose.Types.ObjectId.isValid(chatId)) {
-      return res.status(400).json({ message: "Valid chat ID is required" });
-    }
-
-    const chat = await UserChat.findById(chatId)
-      .populate("messages.sender", "name email profileImage")
-      .populate("messages.reply.sender", "name email profileImage");
-
     if (!chat) {
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    // replies that are attached to user messages
-    const repliesOnMessages = chat.messages
-      .filter((msg) => msg.reply && msg.reply.sender?.toString() === adminId)
-      .map((msg) => ({
-        parentMessageId: msg._id,
-        parentMessage: msg.message,
-        reply: msg.reply,
-      }));
+    // Create the reply/message object
+    const replyData = {
+      message,
+      timestamp: new Date(),
+      read: false,
+    };
 
-    // admin standalone messages
-    const adminMessages = chat.messages
-      .filter((msg) => msg.sender?.toString() === adminId)
-      .map((msg) => ({
-        messageId: msg._id,
-        message: msg.message,
-        timestamp: msg.timestamp,
-        read: msg.read,
-      }));
+    if (messageId) {
+      // This is a reply to an existing message
+      const targetMessage = chat.messages.id(messageId);
+      if (!targetMessage) {
+        return res.status(404).json({ message: "Target message not found" });
+      }
+      targetMessage.reply = {
+        ...replyData,
+        sender: adminId, // Add sender for replies if needed
+      };
+    } else {
+      // This is a new admin message
+      chat.messages.push({
+        sender: adminId,
+        ...replyData,
+        isAdmin: true,
+      });
+    }
 
-    res.status(200).json({
+    chat.status = "open";
+    chat.adminId = chat.adminId || adminId;
+    await chat.save();
+
+    res.status(201).json({
+      message: "Reply sent successfully",
       chatId: chat._id,
-      repliesOnMessages,
-      adminMessages,
     });
   } catch (error) {
-    console.error("Error fetching admin replies:", error);
     res.status(500).json({
-      message: "Failed to fetch admin replies",
+      message: "Failed to send reply",
       error: error.message,
     });
   }
 });
 
-router.get("/chats", async (req, res) => {
-  try {
-    const chats = await UserChat.find().sort({ updatedAt: -1 });
-    res.status(200).json({ chats });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Failed to fetch chats", error: error.message });
-  }
-});
-
+// Mark messages as read
 router.post("/mark-read", async (req, res) => {
   try {
     const { chatId } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ message: "Chat ID is required" });
+    }
+
+    if (!isValidObjectId(chatId)) {
+      return res.status(400).json({ message: "Invalid chat ID" });
+    }
+
     const chat = await UserChat.findById(chatId);
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
 
-    if (!chat) return res.status(404).json({ message: "Chat not found" });
-
-    // Mark all non-admin messages as read
+    // Mark all user messages as read
     chat.messages.forEach((msg) => {
-      if (msg.sender !== chat.adminId) {
+      if (msg.sender.toString() !== chat.adminId?.toString()) {
         msg.read = true;
+      }
+      if (msg.reply) {
+        msg.reply.read = true;
       }
     });
 
@@ -326,12 +204,17 @@ router.post("/mark-read", async (req, res) => {
     });
   }
 });
-/* Mark messages as read (also mark nested replies as read) */
-router.patch("/:chatId/read", async (req, res) => {
-  try {
-    const { chatId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(chatId)) {
+// Close a chat
+router.post("/close", async (req, res) => {
+  try {
+    const { chatId } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ message: "Chat ID is required" });
+    }
+
+    if (!isValidObjectId(chatId)) {
       return res.status(400).json({ message: "Invalid chat ID" });
     }
 
@@ -340,29 +223,16 @@ router.patch("/:chatId/read", async (req, res) => {
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    const userIdStr = chat.userId.toString();
-
-    chat.messages.forEach((msg) => {
-      // mark admin messages (those not from the user) as read
-      if (msg.sender?.toString() !== userIdStr) {
-        msg.read = true;
-      }
-      // mark nested reply read if it's from admin (not from user)
-      if (
-        msg.reply &&
-        msg.reply.sender &&
-        msg.reply.sender.toString() !== userIdStr
-      ) {
-        msg.reply.read = true;
-      }
-    });
-
+    chat.status = "closed";
     await chat.save();
-    res.json({ message: "Messages marked as read" });
+
+    res.status(200).json({
+      message: "Chat closed successfully",
+      chatId: chat._id,
+    });
   } catch (error) {
-    console.error("Mark read error:", error);
     res.status(500).json({
-      message: "Failed to mark messages as read",
+      message: "Failed to close chat",
       error: error.message,
     });
   }

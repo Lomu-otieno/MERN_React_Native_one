@@ -4,7 +4,177 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Messaging System</title>
-    <link rel="stylesheet" href="index.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chat-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        .chat-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .chat-item:hover {
+            background-color: #f9f9f9;
+        }
+        .active-chat {
+            background-color: #e6f2ff;
+        }
+        .messages-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .user-message {
+            background-color: #e6f7ff;
+            border-left: 4px solid #1890ff;
+        }
+        .admin-message {
+            background-color: #f6ffed;
+            border-left: 4px solid #52c41a;
+        }
+        .meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.8em;
+            color: #666;
+        }
+        .reply-indicator {
+            margin-top: 5px;
+            padding: 5px;
+            background-color: #fff;
+            border-left: 3px solid #faad14;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .reply-section {
+            margin-top: 20px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button.secondary {
+            background-color: #52c41a;
+        }
+        button:disabled {
+            background-color: #d9d9d9;
+            cursor: not-allowed;
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            color: white;
+        }
+        .status-pending {
+            background-color: #faad14;
+        }
+        .status-open {
+            background-color: #52c41a;
+        }
+        .status-closed {
+            background-color: #f5222d;
+        }
+        .unread-count {
+            display: inline-block;
+            background-color: #f5222d;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            text-align: center;
+            line-height: 20px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        .empty-state {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+        }
+        .error {
+            color: #f5222d;
+            background-color: #fff1f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .admin-info {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 5px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
     <div class="header">
@@ -129,7 +299,7 @@
             }
             
             const filtered = allChats.filter(chat => 
-                (chat.userId && chat.userId.toLowerCase().includes(searchTerm)) || 
+                (chat.userId && chat.userId.toString().toLowerCase().includes(searchTerm)) || 
                 (chat._id && chat._id.toLowerCase().includes(searchTerm))
             );
             
@@ -138,13 +308,14 @@
 
         function renderChatList(chats = allChats) {
             if (!chats.length) {
-                chatList.innerHTML = '';
+                chatList.innerHTML = '<div class="empty-state">No chats found</div>';
                 return;
             }
             
             let html = '';
             chats.forEach(chat => {
-                const unreadCount = chat.messages ? chat.messages.filter(m => !m.read && m.sender !== chat.adminId).length : 0;
+                const unreadCount = chat.messages ? chat.messages.filter(m => !m.read && 
+                    (chat.adminId ? m.sender.toString() !== chat.adminId.toString() : true)).length : 0;
                 const isActive = currentChat && currentChat.id === chat._id;
                 const lastMessage = chat.messages && chat.messages.length > 0 
                     ? new Date(chat.messages[chat.messages.length-1].timestamp).toLocaleString() 
@@ -197,7 +368,7 @@
             try {
                 setLoading(true, refreshMessagesBtn);
                 
-                const response = await fetch(`${SERVER_URL}/api/chatAdmin/messages/${currentChat.id}`);
+                const response = await fetch(`${SERVER_URL}/api/chatAdmin/${currentChat.id}`);
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
@@ -235,49 +406,50 @@
         }
 
         async function sendReply() {
-    if (!currentChat) {
-        showError('No active chat selected');
-        return;
-    }
-    
-    const message = replyMessage.value.trim();
-    
-    clearError();
-    
-    if (!message) {
-        showError('Message is required');
-        return;
-    }
-    
-    try {
-        setLoading(true, sendReplyBtn);
-        
-        const response = await fetch(`${SERVER_URL}/api/chatAdmin/reply`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                chatId: currentChat.id,
-                message: message
-            })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Server error: ${response.status}`);
+            if (!currentChat) {
+                showError('No active chat selected');
+                return;
+            }
+            
+            const message = replyMessage.value.trim();
+            
+            clearError();
+            
+            if (!message) {
+                showError('Message is required');
+                return;
+            }
+            
+            try {
+                setLoading(true, sendReplyBtn);
+                
+                const response = await fetch(`${SERVER_URL}/api/chatAdmin/reply`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chatId: currentChat.id,
+                        message: message
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `Server error: ${response.status}`);
+                }
+                
+                await refreshMessages();
+                replyMessage.value = '';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError(error.message || 'Failed to send reply');
+            } finally {
+                setLoading(false, sendReplyBtn);
+            }
         }
-        
-        await refreshMessages();
-        replyMessage.value = '';
-        
-    } catch (error) {
-        console.error('Error:', error);
-        showError(error.message || 'Failed to send reply');
-    } finally {
-        setLoading(false, sendReplyBtn);
-    }
-}
+
         async function closeChat() {
             if (!currentChat) {
                 showError('No active chat selected');
@@ -302,10 +474,6 @@
                     throw new Error(errorData.message || `Server error: ${response.status}`);
                 }
                 
-                const result = await response.json();
-                console.log("Close result:", result);
-                
-                // Refresh chat status
                 await refreshMessages();
                 
             } catch (error) {
@@ -332,7 +500,8 @@
                 const chatIndex = allChats.findIndex(c => c._id === chatId);
                 if (chatIndex !== -1) {
                     allChats[chatIndex].messages.forEach(m => {
-                        if (m.sender !== allChats[chatIndex].adminId) {
+                        if (allChats[chatIndex].adminId && 
+                            m.sender.toString() !== allChats[chatIndex].adminId.toString()) {
                             m.read = true;
                         }
                     });
@@ -366,7 +535,8 @@
             
             currentChat.messages.forEach(msg => {
                 const date = new Date(msg.timestamp).toLocaleString();
-                const isAdmin = msg.isAdmin || (currentChat.adminId && msg.sender.toString() === currentChat.adminId.toString());
+                const isAdmin = msg.isAdmin || 
+                    (currentChat.adminId && msg.sender.toString() === currentChat.adminId.toString());
                 
                 html += `
                     <div class="message ${isAdmin ? 'admin-message' : 'user-message'}">
