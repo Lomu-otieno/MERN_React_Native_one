@@ -181,7 +181,7 @@ router.get("/chat/:chatId", async (req, res) => {
 router.post("/reply", async (req, res) => {
   try {
     const { chatId, message, messageId } = req.body;
-    const adminId = process.env.ADMIN_ID; // Set this in your environment variables
+    const adminId = process.env.ADMIN_ID; // Make sure this is set in your environment
 
     if (!chatId || !message) {
       return res.status(400).json({
@@ -190,11 +190,17 @@ router.post("/reply", async (req, res) => {
       });
     }
 
+    // Validate chatId format
+    if (!mongoose.Types.ObjectId.isValid(chatId)) {
+      return res.status(400).json({ message: "Invalid chat ID format" });
+    }
+
     const chat = await UserChat.findById(chatId);
     if (!chat) return res.status(404).json({ message: "Chat not found" });
 
+    // Create new message with proper sender
     const newMessage = {
-      sender: adminId, // Using the fixed admin ID
+      sender: new mongoose.Types.ObjectId(adminId), // Convert to ObjectId
       message,
       timestamp: new Date(),
       read: false,
@@ -203,21 +209,27 @@ router.post("/reply", async (req, res) => {
 
     if (messageId) {
       const target = chat.messages.id(messageId);
-      if (!target)
+      if (!target) {
         return res.status(404).json({ message: "Target message not found" });
-      target.reply = newMessage;
+      }
+      // For replies, we'll use the reply schema which doesn't require sender
+      target.reply = {
+        message,
+        timestamp: new Date(),
+        read: false,
+      };
     } else {
       chat.messages.push(newMessage);
     }
 
     chat.status = "open";
-    chat.adminId = chat.adminId || adminId; // Set adminId if not already set
+    chat.adminId = chat.adminId || new mongoose.Types.ObjectId(adminId);
     await chat.save();
 
     return res.status(201).json({
       message: "Reply saved successfully",
       chatId: chat._id,
-      newMessage: newMessage,
+      newMessage: messageId ? target.reply : newMessage,
     });
   } catch (error) {
     console.error("Reply error:", error);
