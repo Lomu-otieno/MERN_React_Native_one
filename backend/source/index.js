@@ -48,17 +48,11 @@ app.use(express.urlencoded({ extended: true })); // For parsing form data
 const PORT = process.env.PORT || 3001;
 
 app.use("/api/auth", authRoutes);
-
 app.use("/api/users", usersRoutes);
-ss
 app.use("api/chatAdmin", chat_router);
-
 app.use("/api/password", passwordRoutes);
-
 app.use("/api/settings", settingsRoutes);
-
 app.use(errorHandler);
-
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   connectDB();
