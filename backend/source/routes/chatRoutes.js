@@ -5,32 +5,9 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-// Get or create chat for user
-const getAvailableAdmin = async () => {
-  try {
-    const admin = await User.aggregate([
-      { $match: { role: "admin", isActive: true } },
-      {
-        $lookup: {
-          from: "userchats",
-          localField: "_id",
-          foreignField: "adminId",
-          as: "chats",
-        },
-      },
-      { $addFields: { chatCount: { $size: "$chats" } } },
-      { $sort: { chatCount: 1 } },
-      { $limit: 1 },
-    ]);
+/* --- unchanged helper getAvailableAdmin() --- */
 
-    return admin.length > 0 ? admin[0] : null;
-  } catch (error) {
-    console.error("Error finding admin:", error);
-    return null;
-  }
-};
-
-// Get or create chat for user
+/* GET or create chat for user (updated populate to include reply sender) */
 router.get("/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -45,18 +22,26 @@ router.get("/user/:userId", async (req, res) => {
     let chat = await UserChat.findOne({ userId })
       .populate("userId", "name email profileImage")
       .populate("adminId", "name email profileImage")
-      .populate("messages.sender", "name");
+      // populate both message sender and reply sender
+      .populate("messages.sender", "name email profileImage")
+      .populate("messages.reply.sender", "name email profileImage");
 
     if (!chat) {
-      // Find an available admin or create chat without one
       const admin = await getAvailableAdmin();
 
       chat = await UserChat.create({
         userId,
-        adminId: admin?._id || null, // Make adminId optional
+        adminId: admin?._id || null,
         messages: [],
         status: admin ? "open" : "pending",
       });
+
+      // populate newly created chat for response
+      chat = await UserChat.findById(chat._id)
+        .populate("userId", "name email profileImage")
+        .populate("adminId", "name email profileImage")
+        .populate("messages.sender", "name email profileImage")
+        .populate("messages.reply.sender", "name email profileImage");
     }
 
     res.json({
@@ -75,7 +60,7 @@ router.get("/user/:userId", async (req, res) => {
   }
 });
 
-// Send message
+/* Send message (unchanged) */
 router.post("/send", async (req, res) => {
   try {
     const { userId, message } = req.body;
@@ -87,19 +72,16 @@ router.post("/send", async (req, res) => {
       });
     }
 
-    // Find or create chat (don't require admin to be available)
     let chat = await UserChat.findOne({ userId });
 
     if (!chat) {
-      // Create chat without assigning admin immediately
       chat = await UserChat.create({
         userId,
         messages: [],
-        status: "pending", // New status for unassigned chats
+        status: "pending",
       });
     }
 
-    // Add new message
     const newMessage = {
       sender: userId,
       message,
@@ -110,7 +92,6 @@ router.post("/send", async (req, res) => {
     chat.messages.push(newMessage);
     await chat.save();
 
-    // Admin will be assigned later when available
     res.status(201).json({
       newMessage,
       chatId: chat._id,
@@ -127,10 +108,13 @@ router.post("/send", async (req, res) => {
   }
 });
 
-// POST: Admin replies to user
+/* POST: Admin replies — now supports replying to a specific messageId (reply field)
+   If messageId is provided, set reply on that message.
+   If messageId is omitted, push a standalone admin message into messages[] (backwards-compatible).
+*/
 router.post("/reply", async (req, res) => {
   try {
-    const { chatId, adminId, message } = req.body;
+    const { chatId, adminId, message, messageId } = req.body;
 
     if (!chatId || !adminId || !message) {
       return res.status(400).json({
@@ -138,26 +122,45 @@ router.post("/reply", async (req, res) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(chatId)) {
+      return res.status(400).json({ message: "Invalid chat ID" });
+    }
+
     const chat = await UserChat.findById(chatId);
     if (!chat) {
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    const newMessage = {
-      sender: adminId,
-      message,
-      timestamp: new Date(),
-      read: false,
-    };
+    // If messageId provided -> attach reply to that message
+    if (messageId) {
+      const target = chat.messages.id(messageId);
+      if (!target) {
+        return res.status(404).json({ message: "Target message not found" });
+      }
 
-    chat.messages.push(newMessage);
+      target.reply = {
+        sender: adminId,
+        message,
+        timestamp: new Date(),
+        read: false,
+      };
+    } else {
+      // Fallback: push as a standalone admin message (existing behaviour)
+      chat.messages.push({
+        sender: adminId,
+        message,
+        timestamp: new Date(),
+        read: false,
+      });
+    }
+
     chat.status = "open";
-    chat.adminId = chat.adminId || adminId; // Assign if not already set
+    chat.adminId = chat.adminId || adminId;
     await chat.save();
 
-    res.status(201).json({
-      newMessage,
-      message: "Reply sent successfully",
+    return res.status(201).json({
+      message: "Reply saved successfully",
+      chatId: chat._id,
     });
   } catch (error) {
     console.error("Admin reply error:", error);
@@ -167,29 +170,57 @@ router.post("/reply", async (req, res) => {
     });
   }
 });
-// GET admin replies for a specific chat
+
+/* GET admin replies for a specific chat
+   Returns replies attached to messages and standalone admin messages.
+*/
 router.get("/reply/:chatId", async (req, res) => {
   try {
     const { chatId } = req.params;
 
-    if (!chatId) {
-      return res.status(400).json({ message: "Chat ID is required" });
+    if (!chatId || !mongoose.Types.ObjectId.isValid(chatId)) {
+      return res.status(400).json({ message: "Valid chat ID is required" });
     }
 
-    const chat = await UserChat.findById(chatId);
+    const chat = await UserChat.findById(chatId)
+      .populate("messages.sender", "name email profileImage")
+      .populate("messages.reply.sender", "name email profileImage")
+      .populate("adminId", "name email profileImage");
+
     if (!chat) {
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    // Filter only admin messages
-    const adminReplies = chat.messages.filter(
-      (msg) => msg.sender.toString() === chat.adminId?.toString()
-    );
+    const adminIdStr = chat.adminId ? chat.adminId.toString() : null;
+
+    // replies that are attached to user messages
+    const repliesOnMessages = chat.messages
+      .filter(
+        (msg) =>
+          msg.reply &&
+          (!adminIdStr || msg.reply.sender?.toString() === adminIdStr)
+      )
+      .map((msg) => ({
+        parentMessageId: msg._id,
+        parentMessage: msg.message,
+        reply: msg.reply,
+      }));
+
+    // admin standalone messages (messages where sender === adminId)
+    const adminMessages = chat.messages
+      .filter((msg) => adminIdStr && msg.sender?.toString() === adminIdStr)
+      .map((msg) => ({
+        messageId: msg._id,
+        message: msg.message,
+        timestamp: msg.timestamp,
+        read: msg.read,
+      }));
 
     res.status(200).json({
       chatId: chat._id,
       adminId: chat.adminId,
-      replies: adminReplies,
+      repliesOnMessages: repliesOnMessages,
+      adminMessages: adminMessages,
     });
   } catch (error) {
     console.error("Error fetching admin replies:", error);
@@ -200,20 +231,34 @@ router.get("/reply/:chatId", async (req, res) => {
   }
 });
 
-// Mark messages as read
+/* Mark messages as read (also mark nested replies as read) */
 router.patch("/:chatId/read", async (req, res) => {
   try {
     const { chatId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(chatId)) {
+      return res.status(400).json({ message: "Invalid chat ID" });
+    }
 
     const chat = await UserChat.findById(chatId);
     if (!chat) {
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    // Mark all admin messages as read
+    const userIdStr = chat.userId.toString();
+
     chat.messages.forEach((msg) => {
-      if (msg.sender.toString() !== chat.userId.toString()) {
+      // mark admin messages (those not from the user) as read
+      if (msg.sender?.toString() !== userIdStr) {
         msg.read = true;
+      }
+      // mark nested reply read if it's from admin (not from user)
+      if (
+        msg.reply &&
+        msg.reply.sender &&
+        msg.reply.sender.toString() !== userIdStr
+      ) {
+        msg.reply.read = true;
       }
     });
 

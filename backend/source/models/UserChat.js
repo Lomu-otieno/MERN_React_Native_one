@@ -1,4 +1,27 @@
+// UserChat.js (model)
 import mongoose from "mongoose";
+
+const replySchema = new mongoose.Schema(
+  {
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    message: {
+      type: String,
+      trim: true,
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+    read: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { _id: false } // don't need a separate _id for reply
+);
 
 const messageSchema = new mongoose.Schema(
   {
@@ -20,9 +43,11 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // <-- new reply field (optional)
+    reply: replySchema,
   },
-  { _id: true }
-); // Keep _id for individual messages
+  { _id: true } // keep _id for messages
+);
 
 const userChatSchema = new mongoose.Schema(
   {
@@ -30,7 +55,7 @@ const userChatSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true, // One chat per user
+      unique: true,
     },
     adminId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -50,7 +75,6 @@ const userChatSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Update lastActivity when messages change
 userChatSchema.pre("save", function (next) {
   if (this.isModified("messages")) {
     this.lastActivity = new Date();
