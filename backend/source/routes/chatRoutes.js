@@ -180,21 +180,21 @@ router.get("/chat/:chatId", async (req, res) => {
 */
 router.post("/reply", async (req, res) => {
   try {
-    const { chatId, adminId, message, messageId } = req.body;
+    const { chatId, message, messageId } = req.body;
+    const adminId = process.env.ADMIN_ID; // Set this in your environment variables
 
-    if (!chatId || !adminId || !message) {
+    if (!chatId || !message) {
       return res.status(400).json({
         message: "Missing required fields",
-        required: ["chatId", "adminId", "message"],
+        required: ["chatId", "message"],
       });
     }
 
-    // Convert string IDs to ObjectId
-    const chat = await UserChat.findById(new mongoose.Types.ObjectId(chatId));
+    const chat = await UserChat.findById(chatId);
     if (!chat) return res.status(404).json({ message: "Chat not found" });
 
     const newMessage = {
-      sender: new mongoose.Types.ObjectId(adminId), // Convert to ObjectId
+      sender: adminId, // Using the fixed admin ID
       message,
       timestamp: new Date(),
       read: false,
@@ -202,7 +202,7 @@ router.post("/reply", async (req, res) => {
     };
 
     if (messageId) {
-      const target = chat.messages.id(new mongoose.Types.ObjectId(messageId));
+      const target = chat.messages.id(messageId);
       if (!target)
         return res.status(404).json({ message: "Target message not found" });
       target.reply = newMessage;
@@ -211,7 +211,7 @@ router.post("/reply", async (req, res) => {
     }
 
     chat.status = "open";
-    chat.adminId = chat.adminId || new mongoose.Types.ObjectId(adminId);
+    chat.adminId = chat.adminId || adminId; // Set adminId if not already set
     await chat.save();
 
     return res.status(201).json({
@@ -233,6 +233,7 @@ router.post("/reply", async (req, res) => {
 router.get("/reply/:chatId", async (req, res) => {
   try {
     const { chatId } = req.params;
+    const adminId = process.env.ADMIN_ID;
 
     if (!chatId || !mongoose.Types.ObjectId.isValid(chatId)) {
       return res.status(400).json({ message: "Valid chat ID is required" });
@@ -240,31 +241,24 @@ router.get("/reply/:chatId", async (req, res) => {
 
     const chat = await UserChat.findById(chatId)
       .populate("messages.sender", "name email profileImage")
-      .populate("messages.reply.sender", "name email profileImage")
-      .populate("adminId", "name email profileImage");
+      .populate("messages.reply.sender", "name email profileImage");
 
     if (!chat) {
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    const adminIdStr = chat.adminId ? chat.adminId.toString() : null;
-
     // replies that are attached to user messages
     const repliesOnMessages = chat.messages
-      .filter(
-        (msg) =>
-          msg.reply &&
-          (!adminIdStr || msg.reply.sender?.toString() === adminIdStr)
-      )
+      .filter((msg) => msg.reply && msg.reply.sender?.toString() === adminId)
       .map((msg) => ({
         parentMessageId: msg._id,
         parentMessage: msg.message,
         reply: msg.reply,
       }));
 
-    // admin standalone messages (messages where sender === adminId)
+    // admin standalone messages
     const adminMessages = chat.messages
-      .filter((msg) => adminIdStr && msg.sender?.toString() === adminIdStr)
+      .filter((msg) => msg.sender?.toString() === adminId)
       .map((msg) => ({
         messageId: msg._id,
         message: msg.message,
@@ -274,9 +268,8 @@ router.get("/reply/:chatId", async (req, res) => {
 
     res.status(200).json({
       chatId: chat._id,
-      adminId: chat.adminId,
-      repliesOnMessages: repliesOnMessages,
-      adminMessages: adminMessages,
+      repliesOnMessages,
+      adminMessages,
     });
   } catch (error) {
     console.error("Error fetching admin replies:", error);

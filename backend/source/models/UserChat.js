@@ -1,15 +1,11 @@
-// UserChat.js (model)
 import mongoose from "mongoose";
 
 const replySchema = new mongoose.Schema(
   {
-    sender: {
-      type: String,
-      required: true,
-    },
     message: {
       type: String,
       trim: true,
+      required: true,
     },
     timestamp: {
       type: Date,
@@ -43,10 +39,9 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    // <-- new reply field (optional)
     reply: replySchema,
   },
-  { _id: true } // keep _id for messages
+  { _id: true }
 );
 
 const userChatSchema = new mongoose.Schema(
