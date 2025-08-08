@@ -159,19 +159,48 @@
             color: #666;
             margin-bottom: 15px;
         }
+        .active-chat {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+        }
+        .chat-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        .chat-item {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .chat-item:hover {
+            background-color: #f5f5f5;
+        }
+        .unread-count {
+            background-color: #f44336;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Admin Messaging System</h1>
-        <div id="chatStatus" class="status-badge status-pending">Status: Pending</div>
+        <div id="chatStatus" class="status-badge status-pending">Status: None</div>
     </div>
 
     <div class="panel">
-        <h2>Chat Lookup</h2>
+        <h2>Active Chats</h2>
+        <div id="chatList" class="chat-list">
+            <div class="empty-state">Loading chats...</div>
+        </div>
+        
         <div class="input-group">
-            <input type="text" id="userIdInput" placeholder="Enter User ID">
-            <button id="getMessagesBtn" onclick="getMessages()">Get Messages</button>
+            <input type="text" id="searchInput" placeholder="Search by User ID">
+            <button id="refreshChatsBtn" onclick="loadChats()">Refresh</button>
         </div>
     </div>
 
@@ -179,13 +208,14 @@
 
     <div id="chatInfo" class="admin-info" style="display: none;">
         Chat ID: <span id="displayChatId"></span> | 
+        User ID: <span id="displayUserId"></span> |
         Admin: <span id="displayAdminId"></span>
     </div>
 
     <div class="panel" id="messagesPanel" style="display: none;">
         <h2>Conversation</h2>
         <div id="messages" class="messages-container">
-            <div class="empty-state">No messages loaded</div>
+            <div class="empty-state">Select a chat to view messages</div>
         </div>
 
         <div class="reply-section">
@@ -197,6 +227,7 @@
             <div class="input-group">
                 <button id="sendReplyBtn" onclick="sendReply()" class="secondary">Send Reply</button>
                 <button id="closeChatBtn" onclick="closeChat()">Close Chat</button>
+                <button id="refreshMessagesBtn" onclick="refreshMessages()">Refresh Messages</button>
             </div>
         </div>
     </div>
@@ -204,26 +235,38 @@
     <script>
         const SERVER_URL = "https://lomu-dating-backend.onrender.com";
         // DOM Elements
-        const userIdInput = document.getElementById('userIdInput');
+        const searchInput = document.getElementById('searchInput');
         const adminIdInput = document.getElementById('adminIdInput');
         const replyMessage = document.getElementById('replyMessage');
         const errorElement = document.getElementById('error');
         const messagesElement = document.getElementById('messages');
-        const getMessagesBtn = document.getElementById('getMessagesBtn');
+        const refreshChatsBtn = document.getElementById('refreshChatsBtn');
         const sendReplyBtn = document.getElementById('sendReplyBtn');
         const closeChatBtn = document.getElementById('closeChatBtn');
+        const refreshMessagesBtn = document.getElementById('refreshMessagesBtn');
         const messagesPanel = document.getElementById('messagesPanel');
         const chatInfo = document.getElementById('chatInfo');
         const displayChatId = document.getElementById('displayChatId');
+        const displayUserId = document.getElementById('displayUserId');
         const displayAdminId = document.getElementById('displayAdminId');
         const chatStatus = document.getElementById('chatStatus');
+        const chatList = document.getElementById('chatList');
 
         // State
         let currentChat = null;
+        let allChats = [];
+        let refreshInterval = null;
+        const AUTO_REFRESH_INTERVAL = 10000; // 10 seconds
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadChats();
+            startAutoRefresh();
+        });
 
         // Event Listeners
-        userIdInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') getMessages();
+        searchInput.addEventListener('keyup', function() {
+            filterChats();
         });
 
         adminIdInput.addEventListener('keypress', function(e) {
@@ -231,21 +274,12 @@
         });
 
         // Main Functions
-        async function getMessages() {
-            const userId = userIdInput.value.trim();
-            
-            clearError();
-            
-            if (!userId) {
-                showError('Please enter a User ID');
-                return;
-            }
-            
+        async function loadChats() {
             try {
-                setLoading(true, getMessagesBtn);
-                messagesElement.innerHTML = '<p>Loading messages...</p>';
+                setLoading(true, refreshChatsBtn);
+                chatList.innerHTML = '<div class="empty-state">Loading chats...</div>';
                 
-                const response = await fetch(`${SERVER_URL}/api/chatAdmin/messages/${userId}`);
+                const response = await fetch(`${SERVER_URL}/api/chatAdmin/chats`);
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
@@ -253,79 +287,181 @@
                 }
                 
                 const data = await response.json();
-                console.log("Chat data:", data);
+                console.log("Chats data:", data);
+                
+                allChats = data.chats || [];
+                renderChatList();
+                
+            } catch (error) {
+                console.error('Error loading chats:', error);
+                showError(error.message || 'Failed to load chats');
+                chatList.innerHTML = '<div class="empty-state">Error loading chats</div>';
+            } finally {
+                setLoading(false, refreshChatsBtn);
+            }
+        }
+
+        function filterChats() {
+            const searchTerm = searchInput.value.trim().toLowerCase();
+            if (!searchTerm) {
+                renderChatList();
+                return;
+            }
+            
+            const filtered = allChats.filter(chat => 
+                chat.userId.toLowerCase().includes(searchTerm) || 
+                (chat._id && chat._id.toLowerCase().includes(searchTerm))
+            );
+            
+            renderChatList(filtered);
+        }
+
+        function renderChatList(chats = allChats) {
+            if (!chats.length) {
+                chatList.innerHTML = '<div class="empty-state">No chats found</div>';
+                return;
+            }
+            
+            let html = '';
+            chats.forEach(chat => {
+                const unreadCount = chat.messages.filter(m => !m.read && m.sender !== chat.adminId).length;
+                const isActive = currentChat && currentChat.id === chat._id;
+                
+                html += `
+                    <div class="chat-item ${isActive ? 'active-chat' : ''}" onclick="selectChat('${chat._id}')">
+                        <div><strong>User:</strong> ${chat.userId}</div>
+                        <div><small>Last: ${new Date(chat.updatedAt).toLocaleString()}</small></div>
+                        <div>
+                            <span class="status-badge ${getStatusClass(chat.status)}">${chat.status}</span>
+                            ${unreadCount > 0 ? `<span class="unread-count">${unreadCount}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            chatList.innerHTML = html;
+        }
+
+        async function selectChat(chatId) {
+            try {
+                const chat = allChats.find(c => c._id === chatId);
+                if (!chat) return;
                 
                 currentChat = {
-                    id: data.chatId,
-                    userId: userId,
-                    status: data.status,
-                    adminId: data.adminId,
-                    messages: data.messages || []
+                    id: chat._id,
+                    userId: chat.userId,
+                    status: chat.status,
+                    adminId: chat.adminId,
+                    messages: chat.messages || []
                 };
                 
                 renderChatInfo();
                 renderMessages();
                 messagesPanel.style.display = 'block';
                 
+                // Mark messages as read
+                await markMessagesAsRead(chatId);
+                
             } catch (error) {
-                console.error('Error:', error);
-                showError(error.message || 'Failed to load messages');
-                messagesElement.innerHTML = '<div class="empty-state">Error loading messages</div>';
-            } finally {
-                setLoading(false, getMessagesBtn);
+                console.error('Error selecting chat:', error);
+                showError(error.message || 'Failed to load chat');
             }
         }
 
-        async function sendReply() {
-            if (!currentChat) {
-                showError('No active chat selected');
-                return;
-            }
-            
-            const adminId = adminIdInput.value.trim();
-            const message = replyMessage.value.trim();
-            
-            clearError();
-            
-            if (!adminId || !message) {
-                showError('Admin ID and message are required');
-                return;
-            }
+        async function refreshMessages() {
+            if (!currentChat) return;
             
             try {
-                setLoading(true, sendReplyBtn);
+                setLoading(true, refreshMessagesBtn);
                 
-                const response = await fetch(`${SERVER_URL}/api/chatAdmin/reply`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        chatId: currentChat.id,
-                        adminId: adminId,
-                        message: message
-                    })
-                });
+                const response = await fetch(`${SERVER_URL}/api/chatAdmin/messages/${currentChat.userId}`);
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.message || `Server error: ${response.status}`);
                 }
                 
-                const result = await response.json();
-                console.log("Reply result:", result);
+                const data = await response.json();
+                console.log("Refreshed chat data:", data);
                 
-                // Refresh messages after successful reply
-                await getMessages();
-                replyMessage.value = ''; // Clear reply input
+                currentChat.messages = data.messages || [];
+                currentChat.status = data.status;
+                currentChat.adminId = data.adminId;
+                
+                renderMessages();
+                renderChatInfo();
+                
+                // Update in allChats array
+                const chatIndex = allChats.findIndex(c => c._id === currentChat.id);
+                if (chatIndex !== -1) {
+                    allChats[chatIndex] = {
+                        ...allChats[chatIndex],
+                        messages: currentChat.messages,
+                        status: currentChat.status,
+                        adminId: currentChat.adminId
+                    };
+                    renderChatList();
+                }
                 
             } catch (error) {
-                console.error('Error:', error);
-                showError(error.message || 'Failed to send reply');
+                console.error('Error refreshing messages:', error);
+                showError(error.message || 'Failed to refresh messages');
             } finally {
-                setLoading(false, sendReplyBtn);
+                setLoading(false, refreshMessagesBtn);
             }
         }
+
+        async function sendReply() {
+    if (!currentChat) {
+        showError('No active chat selected');
+        return;
+    }
+    
+    const adminId = adminIdInput.value.trim();
+    const message = replyMessage.value.trim();
+    
+    clearError();
+    
+    if (!adminId || !message) {
+        showError('Admin ID and message are required');
+        return;
+    }
+    
+    try {
+        setLoading(true, sendReplyBtn);
+        
+        const response = await fetch(`${SERVER_URL}/api/chatAdmin/reply`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                chatId: currentChat.id,
+                senderId: adminId,  // Changed from adminId to senderId
+                message: message,
+                isAdmin: true  // Added isAdmin flag
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Server error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log("Reply result:", result);
+        
+        // Refresh messages after successful reply
+        await refreshMessages();
+        replyMessage.value = ''; // Clear reply input
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showError(error.message || 'Failed to send reply');
+    } finally {
+        setLoading(false, sendReplyBtn);
+    }
+}
 
         async function closeChat() {
             if (!currentChat) {
@@ -336,7 +472,6 @@
             try {
                 setLoading(true, closeChatBtn);
                 
-                // You would need to implement this endpoint in your backend
                 const response = await fetch(`${SERVER_URL}/api/chatAdmin/close`, {
                     method: 'POST',
                     headers: {
@@ -357,7 +492,7 @@
                 console.log("Close result:", result);
                 
                 // Refresh chat status
-                await getMessages();
+                await refreshMessages();
                 
             } catch (error) {
                 console.error('Error:', error);
@@ -365,6 +500,45 @@
             } finally {
                 setLoading(false, closeChatBtn);
             }
+        }
+
+        async function markMessagesAsRead(chatId) {
+            try {
+                await fetch(`${SERVER_URL}/api/chatAdmin/mark-read`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chatId: chatId
+                    })
+                });
+                
+                // Update local state
+                const chatIndex = allChats.findIndex(c => c._id === chatId);
+                if (chatIndex !== -1) {
+                    allChats[chatIndex].messages.forEach(m => {
+                        if (m.sender !== allChats[chatIndex].adminId) {
+                            m.read = true;
+                        }
+                    });
+                    renderChatList();
+                }
+                
+            } catch (error) {
+                console.error('Error marking messages as read:', error);
+            }
+        }
+
+        function startAutoRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(() => {
+                if (currentChat) {
+                    refreshMessages();
+                } else {
+                    loadChats();
+                }
+            }, AUTO_REFRESH_INTERVAL);
         }
 
         // Helper Functions
@@ -402,19 +576,21 @@
 
         function renderChatInfo() {
             displayChatId.textContent = currentChat.id;
+            displayUserId.textContent = currentChat.userId;
             displayAdminId.textContent = currentChat.adminId || 'Not assigned';
             chatInfo.style.display = 'block';
             
             // Update status badge
-            chatStatus.className = 'status-badge';
+            chatStatus.className = 'status-badge ' + getStatusClass(currentChat.status);
             chatStatus.textContent = `Status: ${currentChat.status}`;
-            
-            if (currentChat.status === 'pending') {
-                chatStatus.classList.add('status-pending');
-            } else if (currentChat.status === 'open') {
-                chatStatus.classList.add('status-open');
-            } else if (currentChat.status === 'closed') {
-                chatStatus.classList.add('status-closed');
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'pending': return 'status-pending';
+                case 'open': return 'status-open';
+                case 'closed': return 'status-closed';
+                default: return '';
             }
         }
 
