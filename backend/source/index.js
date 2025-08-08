@@ -37,11 +37,10 @@ app.get("/", (req, res) => {
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5500",
-    credentials: true, // Allow cookies/auth headers
+    origin: ["http://localhost:5500", process.env.FRONTEND_URL], // Allow both localhost and your production frontend
+    credentials: true,
   })
 );
-
 app.use(helmet()); // Add secure HTTP headers
 app.use(express.urlencoded({ extended: true })); // For parsing form data
 
