@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
-  Image,
   Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -28,7 +27,6 @@ const UserAdminChatScreen = ({ navigation }) => {
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [adminInfo, setAdminInfo] = useState(null);
   const flatListRef = useRef(null);
 
   // Fetch userId from storage and load messages
@@ -55,61 +53,45 @@ const UserAdminChatScreen = ({ navigation }) => {
   const fetchMessages = async (id) => {
     try {
       setLoading(true);
-      const res = await axios.get(`${BACKEND_URI}/api/chatAdmin/user/${id}`, {
-        headers: {
-          "Content-Type": "application/json",
-          // Add authorization if needed
-          Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
-        },
-        timeout: 10000, // 10 second timeout
-      });
+      const res = await axios.get(
+        `${BACKEND_URI}/api/chatAdmin/user/${id}`, // fixed here
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
+          },
+          timeout: 10000,
+        }
+      );
 
       if (!res.data) {
         throw new Error("No data received from server");
       }
 
-      if (res.data.code === "NO_ADMIN_AVAILABLE") {
-        setError("Our support team is currently busy. We'll connect you soon.");
-        setMessages([]);
-      } else {
-        setMessages(res.data.messages || []);
-        setAdminInfo(res.data.admin);
-        setError(null);
-
-        if (!res.data.messages?.length) {
-          setMessages([
-            {
-              _id: "welcome",
-              sender: "system",
-              message: "Hello! How can we help you today?",
-              timestamp: new Date(),
-              systemMessage: true,
-            },
-          ]);
-        }
-      }
+      setMessages(
+        res.data.messages || [
+          {
+            _id: "welcome",
+            sender: "system",
+            message: "Hello! Your messages will be answered soon.",
+            timestamp: new Date(),
+            systemMessage: true,
+          },
+        ]
+      );
+      setError(null);
     } catch (error) {
       let errorMsg = "Connection error. Please try again.";
-
       if (error.response) {
-        // Server responded with error status
         errorMsg =
           error.response.data?.message ||
           `Server error (${error.response.status})`;
       } else if (error.request) {
-        // Request was made but no response
         errorMsg = "No response from server. Check your connection.";
       } else if (error.message.includes("timeout")) {
         errorMsg = "Request timeout. Please try again.";
       }
-
-      console.error("Detailed fetch error:", {
-        message: error.message,
-        code: error.code,
-        config: error.config?.url,
-        response: error.response?.data,
-      });
-
+      console.error("Fetch error:", error);
       setError(errorMsg);
     } finally {
       setLoading(false);
@@ -121,20 +103,40 @@ const UserAdminChatScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
-      const res = await axios.post(`${BACKEND_URI}/api/chatAdmin/send`, {
-        userId,
+      const newMessage = {
+        _id: Date.now().toString(),
+        sender: userId,
         message: messageText,
-      });
-      console.log("Backend URL:", BACKEND_URI);
+        timestamp: new Date(),
+        status: "sent",
+      };
 
-      setMessages((prev) => [...prev, res.data.newMessage]);
+      // Optimistically update UI
+      setMessages((prev) => [...prev, newMessage]);
       setMessageText("");
+
+      // Send to backend
+      await axios.post(
+        `${BACKEND_URI}/api/chat/send`,
+        {
+          userId,
+          message: messageText,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
+          },
+        }
+      );
+
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch (error) {
-      console.error("Send error:", error.response?.data || error);
-      Alert.alert("Error", "Failed to send message");
+      console.error("Send error:", error);
+      Alert.alert("Error", "Failed to send message. Please try again.");
+      // Remove the optimistic update if failed
+      setMessages((prev) => prev.filter((msg) => msg._id !== newMessage._id));
     } finally {
       setLoading(false);
     }
@@ -152,32 +154,35 @@ const UserAdminChatScreen = ({ navigation }) => {
     const isUser = item.sender === userId;
     return (
       <View
-        style={[styles.messageRow, isUser ? styles.userRow : styles.adminRow]}
+        style={[styles.messageRow, isUser ? styles.userRow : styles.otherRow]}
       >
-        {!isUser && adminInfo?.profileImage && (
-          <Image
-            source={{ uri: adminInfo.profileImage }}
-            style={styles.avatar}
-          />
-        )}
-
         <View
           style={[
             styles.messageContainer,
-            isUser ? styles.userMessage : styles.adminMessage,
+            isUser ? styles.userMessage : styles.otherMessage,
           ]}
         >
           <Text
-            style={isUser ? styles.userMessageText : styles.adminMessageText}
+            style={isUser ? styles.userMessageText : styles.otherMessageText}
           >
             {item.message}
           </Text>
-          <Text style={styles.timestamp}>
-            {new Date(item.timestamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
+          <View style={styles.messageFooter}>
+            <Text style={styles.timestamp}>
+              {new Date(item.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+            {isUser && (
+              <Ionicons
+                name="checkmark-done"
+                size={14}
+                color="#4CAF50"
+                style={styles.statusIcon}
+              />
+            )}
+          </View>
         </View>
       </View>
     );
@@ -194,16 +199,10 @@ const UserAdminChatScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          {adminInfo ? (
-            <>
-              <Text style={styles.headerTitle}>Support Team</Text>
-              <Text style={styles.headerSubtitle}>
-                Typically replies in minutes
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.headerTitle}>...</Text>
-          )}
+          <Text style={styles.headerTitle}>Support Messages</Text>
+          <Text style={styles.headerSubtitle}>
+            We'll respond as soon as possible
+          </Text>
         </View>
 
         <TouchableOpacity>
@@ -216,14 +215,13 @@ const UserAdminChatScreen = ({ navigation }) => {
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.select({
-          ios: 0, // Adjust this value if needed for iOS
-          android: 0, // No offset needed for Android when behavior is null
+          ios: 0,
+          android: 0,
         })}
       >
         {loading && messages.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FF0050" />
-            <Text style={styles.headerTitle}>sending...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
@@ -241,7 +239,7 @@ const UserAdminChatScreen = ({ navigation }) => {
             ref={flatListRef}
             data={messages}
             renderItem={renderItem}
-            keyExtractor={(item) => item._id || Date.now().toString()}
+            keyExtractor={(item) => item._id.toString()}
             contentContainerStyle={styles.messagesList}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() =>
@@ -264,8 +262,6 @@ const UserAdminChatScreen = ({ navigation }) => {
             editable={!loading}
             multiline
           />
-          {/* Send button */}
-
           <TouchableOpacity
             style={[
               styles.sendButton,
@@ -295,10 +291,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 30,
+    padding: 15,
     backgroundColor: "#0A0A0A",
     borderBottomWidth: 1,
     borderBottomColor: "#333",
+    paddingVertical: 30,
   },
   headerCenter: {
     flex: 1,
@@ -362,14 +359,8 @@ const styles = StyleSheet.create({
   userRow: {
     alignSelf: "flex-end",
   },
-  adminRow: {
+  otherRow: {
     alignSelf: "flex-start",
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 8,
   },
   messageContainer: {
     paddingVertical: 12,
@@ -380,7 +371,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF0050",
     borderBottomRightRadius: 4,
   },
-  adminMessage: {
+  otherMessage: {
     backgroundColor: "#252525",
     borderBottomLeftRadius: 4,
   },
@@ -389,7 +380,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
   },
-  adminMessageText: {
+  otherMessageText: {
     color: "#fff",
     fontSize: 16,
     lineHeight: 22,
@@ -398,7 +389,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.5)",
     marginTop: 4,
-    alignSelf: "flex-end",
   },
   systemMessageContainer: {
     alignSelf: "center",
@@ -413,12 +403,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
   },
+  messageFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  statusIcon: {
+    marginLeft: 5,
+  },
   inputArea: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 15,
-    backgroundColor: "#0A0A0A",
+    backgroundColor: "#1E1E1E",
     borderTopWidth: 1,
     borderTopColor: "#333",
   },
