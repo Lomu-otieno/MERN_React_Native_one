@@ -55,7 +55,18 @@ const UserAdminChatScreen = ({ navigation }) => {
   const fetchMessages = async (id) => {
     try {
       setLoading(true);
-      const res = await axios.get(`${BACKEND_URI}/api/chatAdmin/user/${id}`);
+      const res = await axios.get(`${BACKEND_URI}/api/chatAdmin/user/${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          // Add authorization if needed
+          Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
+        },
+        timeout: 10000, // 10 second timeout
+      });
+
+      if (!res.data) {
+        throw new Error("No data received from server");
+      }
 
       if (res.data.code === "NO_ADMIN_AVAILABLE") {
         setError("Our support team is currently busy. We'll connect you soon.");
@@ -65,7 +76,6 @@ const UserAdminChatScreen = ({ navigation }) => {
         setAdminInfo(res.data.admin);
         setError(null);
 
-        // Add welcome message if no messages exist
         if (!res.data.messages?.length) {
           setMessages([
             {
@@ -79,10 +89,28 @@ const UserAdminChatScreen = ({ navigation }) => {
         }
       }
     } catch (error) {
-      console.error("Fetch error:", error.response?.data || error);
-      setError(
-        error.response?.data?.message || "Connection error. Please try again."
-      );
+      let errorMsg = "Connection error. Please try again.";
+
+      if (error.response) {
+        // Server responded with error status
+        errorMsg =
+          error.response.data?.message ||
+          `Server error (${error.response.status})`;
+      } else if (error.request) {
+        // Request was made but no response
+        errorMsg = "No response from server. Check your connection.";
+      } else if (error.message.includes("timeout")) {
+        errorMsg = "Request timeout. Please try again.";
+      }
+
+      console.error("Detailed fetch error:", {
+        message: error.message,
+        code: error.code,
+        config: error.config?.url,
+        response: error.response?.data,
+      });
+
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

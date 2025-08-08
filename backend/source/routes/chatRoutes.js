@@ -33,10 +33,17 @@ router.get("/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        message: "Invalid user ID format",
+        code: "INVALID_ID",
+      });
+    }
+
     // Find existing chat
     let chat = await UserChat.findOne({ userId })
-      .populate("userId", "name email")
-      .populate("adminId", "name email")
+      .populate("userId", "name email profileImage")
+      .populate("adminId", "name email profileImage")
       .populate("messages.sender", "name");
 
     // Create new chat if none exists
@@ -44,10 +51,17 @@ router.get("/user/:userId", async (req, res) => {
       const admin = await getAvailableAdmin();
 
       if (!admin) {
-        return res.status(503).json({
-          // message:
-          //   "No support staff available at the moment. Please try again later.",
-          // code: "NO_ADMIN_AVAILABLE",
+        return res.status(200).json({
+          messages: [
+            {
+              _id: "welcome",
+              sender: "system",
+              message: "Our team is currently busy. We'll connect you soon.",
+              timestamp: new Date(),
+              systemMessage: true,
+            },
+          ],
+          code: "NO_ADMIN_AVAILABLE",
         });
       }
 
@@ -63,7 +77,7 @@ router.get("/user/:userId", async (req, res) => {
       messages: chat.messages,
       chatId: chat._id,
       status: chat.status,
-      admin: chat.adminId, // Include admin info
+      admin: chat.adminId,
     });
   } catch (error) {
     console.error("Chat fetch error:", error);
