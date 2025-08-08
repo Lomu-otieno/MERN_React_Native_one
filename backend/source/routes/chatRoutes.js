@@ -285,6 +285,40 @@ router.get("/reply/:chatId", async (req, res) => {
   }
 });
 
+router.get("/chats", async (req, res) => {
+  try {
+    const chats = await UserChat.find().sort({ updatedAt: -1 });
+    res.status(200).json({ chats });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Failed to fetch chats", error: error.message });
+  }
+});
+
+router.post("/mark-read", async (req, res) => {
+  try {
+    const { chatId } = req.body;
+    const chat = await UserChat.findById(chatId);
+
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
+
+    // Mark all non-admin messages as read
+    chat.messages.forEach((msg) => {
+      if (msg.sender !== chat.adminId) {
+        msg.read = true;
+      }
+    });
+
+    await chat.save();
+    res.status(200).json({ message: "Messages marked as read" });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to mark messages as read",
+      error: error.message,
+    });
+  }
+});
 /* Mark messages as read (also mark nested replies as read) */
 router.patch("/:chatId/read", async (req, res) => {
   try {
