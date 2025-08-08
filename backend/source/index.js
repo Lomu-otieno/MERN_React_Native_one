@@ -6,6 +6,7 @@ import usersRoutes from "./routes/users.js";
 import passwordRoutes from "./routes/password.js";
 import settingsRoutes from "./routes/settings.js";
 import errorHandler from "./middleware/errorHandler.js";
+import chat_router from "./routes/chatRoutes.js";
 import "./lib/keepAlive.js";
 import cors from "cors";
 import helmet from "helmet";
@@ -17,12 +18,12 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(express.json()); // Important for parsing req.body
 
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 100, // limit each IP to 100 requests per windowMs
-// });
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
 
-// app.use(limiter);
+app.use(limiter);
 
 app.use(compression());
 
@@ -49,6 +50,8 @@ const PORT = process.env.PORT || 3001;
 app.use("/api/auth", authRoutes);
 
 app.use("/api/users", usersRoutes);
+ss
+app.use("api/chatAdmin", chat_router);
 
 app.use("/api/password", passwordRoutes);
 
