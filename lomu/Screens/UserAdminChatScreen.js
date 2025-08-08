@@ -87,7 +87,7 @@ const UserAdminChatScreen = ({ navigation }) => {
           error.response.data?.message ||
           `Server error (${error.response.status})`;
       } else if (error.request) {
-        errorMsg = "No response from server. Check your connection.";
+        errorMsg = "Check your internet connection.";
       } else if (error.message.includes("timeout")) {
         errorMsg = "Request timeout. Please try again.";
       }
@@ -120,7 +120,7 @@ const UserAdminChatScreen = ({ navigation }) => {
 
       // Send to backend
       await axios.post(
-        `${BACKEND_URI}/api/chat/send`,
+        `${BACKEND_URI}/api/chatAdmin/send`,
         {
           userId,
           message: messageText,
