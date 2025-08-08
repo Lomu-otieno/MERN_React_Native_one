@@ -4,8 +4,8 @@ import mongoose from "mongoose";
 const replySchema = new mongoose.Schema(
   {
     sender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
+      required: true,
     },
     message: {
       type: String,
@@ -20,7 +20,7 @@ const replySchema = new mongoose.Schema(
       default: false,
     },
   },
-  { _id: false } // don't need a separate _id for reply
+  { _id: false }
 );
 
 const messageSchema = new mongoose.Schema(
@@ -39,20 +39,14 @@ const messageSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    isAdmin: { type: Boolean, default: false },
     read: {
       type: Boolean,
       default: false,
     },
-    reply: {
-      sender: String,
-      message: String,
-      timestamp: Date,
-      read: Boolean,
-      isAdmin: Boolean,
-    },
+    // <-- new reply field (optional)
+    reply: replySchema,
   },
-  { _id: true }
+  { _id: true } // keep _id for messages
 );
 
 const userChatSchema = new mongoose.Schema(

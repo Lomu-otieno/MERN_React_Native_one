@@ -170,52 +170,39 @@ router.get("/chat/:chatId", async (req, res) => {
 */
 router.post("/reply", async (req, res) => {
   try {
-    console.log("Received request body:", req.body); // Debug log
-
     const { chatId, adminId, message, messageId } = req.body;
 
     if (!chatId || !adminId || !message) {
-      console.log("Missing fields:", { chatId, adminId, message }); // Debug log
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    const chat = await UserChat.findById(chatId);
+    // Convert string IDs to ObjectId if needed
+    const chat = await UserChat.findById(mongoose.Types.ObjectId(chatId));
     if (!chat) {
-      console.log("Chat not found:", chatId); // Debug log
       return res.status(404).json({ message: "Chat not found" });
     }
 
-    // Handle reply to specific message
+    const newMessage = {
+      sender: mongoose.Types.ObjectId(adminId), // Convert to ObjectId
+      message,
+      timestamp: new Date(),
+      read: false,
+      isAdmin: true,
+    };
+
     if (messageId) {
       const target = chat.messages.id(messageId);
-      if (!target) {
-        console.log("Target message not found:", messageId); // Debug log
+      if (!target)
         return res.status(404).json({ message: "Target message not found" });
-      }
-
-      target.reply = {
-        sender: adminId,
-        message,
-        timestamp: new Date(),
-        read: false,
-        isAdmin: true,
-      };
+      target.reply = newMessage;
     } else {
-      // Fallback: push as a standalone admin message
-      chat.messages.push({
-        sender: adminId,
-        message,
-        timestamp: new Date(),
-        read: false,
-        isAdmin: true,
-      });
+      chat.messages.push(newMessage);
     }
 
     chat.status = "open";
-    chat.adminId = chat.adminId || adminId;
+    chat.adminId = chat.adminId || mongoose.Types.ObjectId(adminId);
     await chat.save();
 
-    console.log("Reply saved successfully for chat:", chatId); // Debug log
     return res.status(201).json({
       message: "Reply saved successfully",
       chatId: chat._id,
