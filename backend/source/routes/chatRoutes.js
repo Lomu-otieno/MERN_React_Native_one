@@ -5,6 +5,16 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
+function validateObjectId(req, res, next) {
+  if (
+    !mongoose.Types.ObjectId.isValid(req.body.chatId) ||
+    !mongoose.Types.ObjectId.isValid(req.body.adminId)
+  ) {
+    return res.status(400).json({ message: "Invalid ID format" });
+  }
+  next();
+}
+
 router.get("/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -173,17 +183,18 @@ router.post("/reply", async (req, res) => {
     const { chatId, adminId, message, messageId } = req.body;
 
     if (!chatId || !adminId || !message) {
-      return res.status(400).json({ message: "Missing required fields" });
+      return res.status(400).json({
+        message: "Missing required fields",
+        required: ["chatId", "adminId", "message"],
+      });
     }
 
-    // Convert string IDs to ObjectId if needed
-    const chat = await UserChat.findById(mongoose.Types.ObjectId(chatId));
-    if (!chat) {
-      return res.status(404).json({ message: "Chat not found" });
-    }
+    // Convert string IDs to ObjectId
+    const chat = await UserChat.findById(new mongoose.Types.ObjectId(chatId));
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
 
     const newMessage = {
-      sender: mongoose.Types.ObjectId(adminId), // Convert to ObjectId
+      sender: new mongoose.Types.ObjectId(adminId), // Convert to ObjectId
       message,
       timestamp: new Date(),
       read: false,
@@ -191,7 +202,7 @@ router.post("/reply", async (req, res) => {
     };
 
     if (messageId) {
-      const target = chat.messages.id(messageId);
+      const target = chat.messages.id(new mongoose.Types.ObjectId(messageId));
       if (!target)
         return res.status(404).json({ message: "Target message not found" });
       target.reply = newMessage;
@@ -200,17 +211,18 @@ router.post("/reply", async (req, res) => {
     }
 
     chat.status = "open";
-    chat.adminId = chat.adminId || mongoose.Types.ObjectId(adminId);
+    chat.adminId = chat.adminId || new mongoose.Types.ObjectId(adminId);
     await chat.save();
 
     return res.status(201).json({
       message: "Reply saved successfully",
       chatId: chat._id,
+      newMessage: newMessage,
     });
   } catch (error) {
-    console.error("Admin reply error:", error);
+    console.error("Reply error:", error);
     res.status(500).json({
-      message: "Failed to send reply",
+      message: "Failed to process reply",
       error: error.message,
     });
   }
