@@ -1,7 +1,7 @@
 // routes/userChatRoutes.js
 import express from "express";
-import UserChat from "../models/userChat.js";
-import User from "../models/user.js";
+import UserChat from "../models/UserChat.js";
+import User from "../models/User.js";
 
 const chat_router = express.Router();
 
