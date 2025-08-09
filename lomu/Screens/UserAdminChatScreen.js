@@ -40,21 +40,21 @@ const UserAdminChatScreen = ({ navigation, route }) => {
 
   const fetchChat = useCallback(
     async (showLoading = false) => {
-      if (!chatId && !userId) return; // Prevent useless requests
-
       try {
         if (showLoading) setLoading(true);
-        let response;
 
+        let response;
         if (chatId) {
+          // Fetch by chat ID
           response = await axios.get(`${BACKEND_URI}/api/chatAdmin/${chatId}`, {
             headers: {
               Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
             },
           });
         } else if (userId) {
+          // Fetch by user ID
           response = await axios.get(
-            `${BACKEND_URI}/api/chatAdmin/messages/${userId}`,
+            `${BACKEND_URI}/api/chatAdmin/user/${userId}`,
             {
               headers: {
                 Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
@@ -63,13 +63,19 @@ const UserAdminChatScreen = ({ navigation, route }) => {
           );
         }
 
+        setChatDetails({
+          id: response.data.chatId,
+          userId: response.data.userId,
+          adminId: response.data.adminId,
+          status: response.data.status,
+        });
         setMessages(response.data.messages || []);
         setError(null);
       } catch (error) {
-        if (error.response?.status === 404) {
-          if (interval) clearInterval(interval);
+        if (error.response?.status !== 404) {
+          console.error("Fetch error:", error);
+          setError(error.response?.data?.message || "Failed to load chat");
         }
-        setError(error.response?.data?.message || "Failed to load chat");
       } finally {
         if (showLoading) setLoading(false);
       }
@@ -92,26 +98,34 @@ const UserAdminChatScreen = ({ navigation, route }) => {
   // Initialize chat and set up polling
   useEffect(() => {
     let interval;
+    let isMounted = true;
 
     const initializeChat = async () => {
-      const storedUserId = await AsyncStorage.getItem("userId");
-      setUserId(storedUserId);
+      try {
+        const storedUserId = await AsyncStorage.getItem("userId");
+        if (!storedUserId) return;
 
-      if (chatId || storedUserId) {
-        await fetchChat(true); // Initial fetch
-        interval = setInterval(() => {
-          fetchChat();
-        }, 2000);
+        setUserId(storedUserId);
+        await fetchChat(true);
+
+        // Only start polling if we have a valid chat
+        if (messages.length > 0 || chatId) {
+          interval = setInterval(fetchChat, 5000); // Poll every 5 seconds
+        }
+      } catch (err) {
+        console.error("Initialization error:", err);
       }
     };
 
-    initializeChat();
+    if (isMounted) {
+      initializeChat();
+    }
 
     return () => {
+      isMounted = false;
       if (interval) clearInterval(interval);
     };
   }, [chatId]);
-
   const sendMessage = async () => {
     if (!messageText.trim() || !userId) return;
 
@@ -165,7 +179,7 @@ const UserAdminChatScreen = ({ navigation, route }) => {
   };
 
   const renderItem = ({ item }) => {
-    const isAdminMessage = item.sender === ADMIN_ID;
+    const isAdminMessage = item.sender === ADMIN_ID || item.isAdmin;
     const isSystemMessage = item.systemMessage;
 
     if (isSystemMessage) {
@@ -194,6 +208,11 @@ const UserAdminChatScreen = ({ navigation, route }) => {
               {chatDetails?.adminId?.name || "Agent"}
             </Text>
           )}
+          {!isAdminMessage && (
+            <Text style={styles.senderName}>
+              {chatDetails?.userId?.name || "You"}
+            </Text>
+          )}
 
           <Text
             style={
@@ -202,6 +221,24 @@ const UserAdminChatScreen = ({ navigation, route }) => {
           >
             {item.message}
           </Text>
+
+          {item.reply && (
+            <View
+              style={[
+                styles.replyContainer,
+                item.reply.sender === ADMIN_ID
+                  ? styles.adminReply
+                  : styles.userReply,
+              ]}
+            >
+              <Text style={styles.replyText}>
+                {item.reply.sender === ADMIN_ID
+                  ? "Agent replied: "
+                  : "You replied: "}
+                {item.reply.message}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.messageFooter}>
             <Text style={styles.timestamp}>
@@ -223,7 +260,6 @@ const UserAdminChatScreen = ({ navigation, route }) => {
       </View>
     );
   };
-
   return (
     <SafeAreaView style={[styles.safeArea, { paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="light-content" />
@@ -241,7 +277,7 @@ const UserAdminChatScreen = ({ navigation, route }) => {
               : "Support Chat"}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {chatDetails?.status || "loading..."}
+            {chatDetails?.status || "..."}
           </Text>
         </View>
 

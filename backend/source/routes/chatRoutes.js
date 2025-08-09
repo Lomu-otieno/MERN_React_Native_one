@@ -9,6 +9,37 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // Get all chats (for admin panel)
 
+router.get("/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!isValidObjectId(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const chat = await UserChat.findOne({ userId })
+      .populate("userId", "name email")
+      .populate("adminId", "name email");
+
+    if (!chat) {
+      return res.status(404).json({ message: "No chat found for this user" });
+    }
+
+    res.status(200).json({
+      chatId: chat._id,
+      userId: chat.userId,
+      adminId: chat.adminId,
+      status: chat.status,
+      messages: chat.messages,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch user chat",
+      error: error.message,
+    });
+  }
+});
+
 router.get("/chats", async (req, res) => {
   try {
     const chats = await UserChat.find()
