@@ -1,5 +1,7 @@
 import express from "express";
 import axios from "axios";
+import dotenv from "dotenv";
+dotenv.config();
 
 const revenueRouter = express.Router(); // Fixed: Router is a function, so call it.
 
@@ -20,6 +22,21 @@ const getAuthToken = async () => {
     throw error;
   }
 };
+
+(async () => {
+  const auth = Buffer.from(
+    `${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`
+  ).toString("base64");
+
+  try {
+    const res = await axios.get(process.env.MPESA_AUTH_URL, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+    console.log("✅ Access Token:", res.data.access_token);
+  } catch (err) {
+    console.error("❌ Error:", err.response?.data || err.message);
+  }
+})();
 
 // M-Pesa STK Push Route
 revenueRouter.post("/stkpush", async (req, res) => {
