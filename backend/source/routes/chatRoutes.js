@@ -18,7 +18,7 @@ router.get("/chats", async (req, res) => {
     res.status(200).json({ chats });
   } catch (error) {
     res.status(500).json({
-      message: "Failed to fetch chats",
+      message: "Please Try Again",
       error: error.message,
     });
   }
@@ -124,7 +124,7 @@ router.get("/:chatId", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: "Failed to fetch chat",
+      message: "Please Try Again",
       error: error.message,
     });
   }
@@ -261,29 +261,6 @@ router.post("/close", async (req, res) => {
       message: "Failed to close chat",
       error: error.message,
     });
-  }
-});
-
-router.post("/start", async (req, res) => {
-  try {
-    const { userId } = req.body;
-
-    // Check if chat already exists
-    let chat = await Chat.findOne({ userId });
-
-    if (!chat) {
-      // Create new chat
-      chat = new Chat({
-        userId,
-        status: "pending",
-        messages: [],
-      });
-      await chat.save();
-    }
-
-    res.status(200).json(chat);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to start chat" });
   }
 });
 
