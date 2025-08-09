@@ -62,19 +62,23 @@ revenueRouter.post("/stkpush", async (req, res) => {
   }
 });
 
-revenueRouter.post("/api/mpesa-callback", (req, res) => {
+revenueRouter.post("/mpesa-callback", (req, res) => {
   const paymentData = req.body;
-  console.log("💰 Payment Received:", paymentData);
+  console.log("💰 Payment Notification:", paymentData);
 
-  // Validate the transaction
-  if (paymentData.ResultCode === 0) {
-    console.log("✅ Payment Successful!");
-    // Update your database here
+  // Handle success (ResultCode 0) or failure
+  if (paymentData.Body?.stkCallback?.ResultCode === 0) {
+    const metadata = paymentData.Body.stkCallback.CallbackMetadata?.Item;
+    console.log("✅ Payment Successful! Metadata:", metadata);
+    // TODO: Update database here
   } else {
-    console.log("❌ Payment Failed:", paymentData.ResultDesc);
+    console.log(
+      "❌ Payment Failed:",
+      paymentData.Body?.stkCallback?.ResultDesc
+    );
   }
 
-  res.status(200).send(); // Always acknowledge receipt
+  res.status(200).send(); // Always acknowledge
 });
 
 export default revenueRouter; // Export the router
