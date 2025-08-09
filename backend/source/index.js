@@ -7,6 +7,7 @@ import passwordRoutes from "./routes/password.js";
 import settingsRoutes from "./routes/settings.js";
 import errorHandler from "./middleware/errorHandler.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import revenueRouter from "./routes/revenue.js";
 import "./lib/keepAlive.js";
 import cors from "cors";
 import helmet from "helmet";
@@ -46,6 +47,7 @@ app.use("/api/users", usersRoutes);
 app.use("/api/chatAdmin", chatRoutes);
 app.use("/api/password", passwordRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/revenue", revenueRouter);
 
 // Configuration endpoint
 app.get("/api/config", (req, res) => {

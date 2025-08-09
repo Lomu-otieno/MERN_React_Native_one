@@ -180,12 +180,6 @@ const ExploreScreen = () => {
           <Text style={styles.appName}>lomu</Text>
         </View>
         <View style={styles.headerIcons}>
-          <Ionicons
-            name="notifications-outline"
-            size={24}
-            color="white"
-            style={styles.icon}
-          />
           <TouchableOpacity
             onPress={() => navigation.navigate("UserAdminChatScreen")} // Add this
           >
@@ -196,6 +190,12 @@ const ExploreScreen = () => {
               style={styles.icon}
             />
           </TouchableOpacity>
+          <Ionicons
+            name="card-outline"
+            size={24}
+            color="white"
+            style={styles.icon}
+          />
         </View>
       </View>
       <View style={styles.container}>

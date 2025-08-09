@@ -317,7 +317,7 @@ const ProfileScreen = () => {
           >
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>{likesCount}</Text>
-              <Text style={styles.statLabel}>Liked</Text>
+              <Text style={styles.statLabel}>Dates</Text>
             </View>
           </TouchableOpacity>
         </View>

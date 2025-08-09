@@ -33,49 +33,81 @@ const UserAdminChatScreen = ({ navigation, route }) => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [chatDetails, setChatDetails] = useState(null);
+  const [isSending, setIsSending] = useState(false);
   const flatListRef = useRef(null);
 
   // Get chatId from route params if available
   const chatId = route.params?.chatId;
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchChat(false, true);
+    } catch (error) {
+      setError("Failed to refresh messages");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const fetchChat = useCallback(
-    async (showLoading = false) => {
+    async (showLoading = false, forceRefresh = false) => {
+      // Added forceRefresh parameter
       try {
         if (showLoading) setLoading(true);
 
+        const cacheBuster = forceRefresh ? `&_=${Date.now()}` : "";
+        const token = await AsyncStorage.getItem("token");
+
         let response;
         if (chatId) {
-          // Fetch by chat ID
-          response = await axios.get(`${BACKEND_URI}/api/chatAdmin/${chatId}`, {
-            headers: {
-              Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
-            },
-          });
-        } else if (userId) {
-          // Fetch by user ID
           response = await axios.get(
-            `${BACKEND_URI}/api/chatAdmin/user/${userId}`,
+            `${BACKEND_URI}/api/chatAdmin/${chatId}?${cacheBuster}`,
             {
               headers: {
-                Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
+                Authorization: `Bearer ${token}`,
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+                Expires: "0",
+              },
+            }
+          );
+          setChatDetails({
+            userId: response.data.userId,
+            adminId: response.data.adminId,
+            status: response.data.status,
+          });
+        } else if (userId) {
+          response = await axios.get(
+            `${BACKEND_URI}/api/chatAdmin/messages/${userId}?${cacheBuster}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+                Expires: "0",
               },
             }
           );
         }
 
-        setChatDetails({
-          id: response.data.chatId,
-          userId: response.data.userId,
-          adminId: response.data.adminId,
-          status: response.data.status,
+        // Only update messages if they've changed
+        setMessages((prevMessages) => {
+          const newMessages = response?.data?.messages || [];
+          return JSON.stringify(prevMessages) === JSON.stringify(newMessages)
+            ? prevMessages
+            : newMessages;
         });
-        setMessages(response.data.messages || []);
+
         setError(null);
       } catch (error) {
-        if (error.response?.status !== 404) {
-          console.error("Fetch error:", error);
-          setError(error.response?.data?.message || "Failed to load chat");
+        if (error.response?.status === 429) {
+          const retryAfter = error.response.headers["retry-after"] || 30;
+          console.warn(`Rate limited, retrying after ${retryAfter} seconds`);
+          setError("Too many requests. Slowing down refresh...");
+          return retryAfter * 1000; // Return the delay needed
         }
+        setError(error.response?.data?.message || "Failed to load chat");
       } finally {
         if (showLoading) setLoading(false);
       }
@@ -83,49 +115,49 @@ const UserAdminChatScreen = ({ navigation, route }) => {
     [chatId, userId]
   );
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await fetchChat();
-    } catch (error) {
-      console.error("Refresh error:", error);
-      setError("Failed to refresh messages");
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   // Initialize chat and set up polling
   useEffect(() => {
     let interval;
     let isMounted = true;
 
-    const initializeChat = async () => {
+    const startPolling = async (initialDelay = 0) => {
+      if (!isMounted) return;
+
+      await new Promise((resolve) => setTimeout(resolve, initialDelay));
+
       try {
         const storedUserId = await AsyncStorage.getItem("userId");
-        if (!storedUserId) return;
+        if (!storedUserId) {
+          setError("Please login to continue");
+          return;
+        }
 
         setUserId(storedUserId);
         await fetchChat(true);
 
-        // Only start polling if we have a valid chat
-        if (messages.length > 0 || chatId) {
-          interval = setInterval(fetchChat, 5000); // Poll every 5 seconds
-        }
+        // Start normal polling
+        interval = setInterval(async () => {
+          const delay = await fetchChat();
+          if (delay) {
+            // If rate limited, adjust polling
+            clearInterval(interval);
+            startPolling(delay);
+          }
+        }, 10000);
       } catch (err) {
         console.error("Initialization error:", err);
+        setError("Failed to load chat");
       }
     };
 
-    if (isMounted) {
-      initializeChat();
-    }
+    startPolling();
 
     return () => {
       isMounted = false;
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
     };
-  }, [chatId]);
+  }, [fetchChat]);
+
   const sendMessage = async () => {
     if (!messageText.trim() || !userId) return;
 
@@ -136,10 +168,11 @@ const UserAdminChatScreen = ({ navigation, route }) => {
       message: messageText,
       timestamp: new Date(),
       read: false,
+      isSending: true,
     };
 
     try {
-      // Optimistic UI update
+      setIsSending(true);
       setMessages((prev) => [...prev, tempMessage]);
       setMessageText("");
 
@@ -171,16 +204,18 @@ const UserAdminChatScreen = ({ navigation, route }) => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch (error) {
-      console.error("Send error:", error);
       Alert.alert("Error", "Failed to send message. Please try again.");
       // Remove the optimistic update if failed
       setMessages((prev) => prev.filter((msg) => msg._id !== tempId));
+    } finally {
+      setIsSending(false);
     }
   };
 
   const renderItem = ({ item }) => {
-    const isAdminMessage = item.sender === ADMIN_ID || item.isAdmin;
+    const isAdminMessage = item.sender === ADMIN_ID;
     const isSystemMessage = item.systemMessage;
+    const isSendingMessage = item.isSending;
 
     if (isSystemMessage) {
       return (
@@ -201,16 +236,12 @@ const UserAdminChatScreen = ({ navigation, route }) => {
           style={[
             styles.messageContainer,
             isAdminMessage ? styles.adminMessage : styles.userMessage,
+            isSendingMessage && styles.sendingMessage,
           ]}
         >
           {isAdminMessage && (
             <Text style={styles.senderName}>
               {chatDetails?.adminId?.name || "Agent"}
-            </Text>
-          )}
-          {!isAdminMessage && (
-            <Text style={styles.senderName}>
-              {chatDetails?.userId?.name || "You"}
             </Text>
           )}
 
@@ -222,24 +253,6 @@ const UserAdminChatScreen = ({ navigation, route }) => {
             {item.message}
           </Text>
 
-          {item.reply && (
-            <View
-              style={[
-                styles.replyContainer,
-                item.reply.sender === ADMIN_ID
-                  ? styles.adminReply
-                  : styles.userReply,
-              ]}
-            >
-              <Text style={styles.replyText}>
-                {item.reply.sender === ADMIN_ID
-                  ? "Agent replied: "
-                  : "You replied: "}
-                {item.reply.message}
-              </Text>
-            </View>
-          )}
-
           <View style={styles.messageFooter}>
             <Text style={styles.timestamp}>
               {new Date(item.timestamp).toLocaleTimeString([], {
@@ -247,19 +260,28 @@ const UserAdminChatScreen = ({ navigation, route }) => {
                 minute: "2-digit",
               })}
             </Text>
-            {!isAdminMessage && (
-              <Ionicons
-                name="checkmark-done"
-                size={14}
-                color={item.read ? "#4CAF50" : "#999"}
+            {isSendingMessage ? (
+              <ActivityIndicator
+                size="small"
+                color={isAdminMessage ? "#999" : "#fff"}
                 style={styles.statusIcon}
               />
+            ) : (
+              !isAdminMessage && (
+                <Ionicons
+                  name="checkmark-done"
+                  size={14}
+                  color={item.read ? "#4CAF50" : "#999"}
+                  style={styles.statusIcon}
+                />
+              )
             )}
           </View>
         </View>
       </View>
     );
   };
+
   return (
     <SafeAreaView style={[styles.safeArea, { paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="light-content" />
@@ -274,7 +296,7 @@ const UserAdminChatScreen = ({ navigation, route }) => {
           <Text style={styles.headerTitle}>
             {chatDetails?.adminId?.name
               ? `Chat with ${chatDetails.adminId.name}`
-              : "Support Chat"}
+              : "Hook-upDate"}
           </Text>
           <Text style={styles.headerSubtitle}>
             {chatDetails?.status || "..."}
@@ -301,13 +323,17 @@ const UserAdminChatScreen = ({ navigation, route }) => {
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
-            <Ionicons name="warning-outline" size={32} color="#FF0050" />
-            <Text style={styles.errorText}>{error}</Text>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={30}
+              color="#FF0050"
+            />
+            {/* <Text style={styles.errorText}>{error}</Text> */}
             <TouchableOpacity
               style={styles.retryButton}
               onPress={() => fetchChat(true)}
             >
-              <Text style={styles.retryButtonText}>Try Again</Text>
+              <Text style={styles.retryButtonText}>chat with Admin</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -358,16 +384,20 @@ const UserAdminChatScreen = ({ navigation, route }) => {
           <TouchableOpacity
             style={[
               styles.sendButton,
-              (!messageText.trim() || loading) && styles.sendButtonDisabled,
+              (!messageText.trim() || isSending) && styles.sendButtonDisabled,
             ]}
             onPress={sendMessage}
-            disabled={!messageText.trim() || loading}
+            disabled={!messageText.trim() || isSending}
           >
-            <Ionicons
-              name="send"
-              size={22}
-              color={!messageText.trim() || loading ? "#666" : "#fff"}
-            />
+            {isSending ? (
+              <ActivityIndicator size="small" color="#666" />
+            ) : (
+              <Ionicons
+                name="send"
+                size={22}
+                color={!messageText.trim() || isSending ? "#666" : "#fff"}
+              />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -378,7 +408,7 @@ const UserAdminChatScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#121212",
+    backgroundColor: "#0A0A0A",
   },
   header: {
     flexDirection: "row",
@@ -432,11 +462,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    backgroundColor: "#FF0050",
+    backgroundColor: "#0A0A0A",
     borderRadius: 20,
   },
   retryButtonText: {
     color: "#fff",
+    fontSize: 18,
     fontWeight: "600",
   },
   messagesList: {
@@ -558,6 +589,9 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: "#333",
+  },
+  sendingMessage: {
+    opacity: 0.7,
   },
 });
 
