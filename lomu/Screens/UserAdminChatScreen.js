@@ -10,7 +10,6 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
-  Alert,
   SafeAreaView,
   Dimensions,
   RefreshControl,
@@ -30,91 +29,86 @@ const UserAdminChatScreen = ({ navigation, route }) => {
   const [messageText, setMessageText] = useState("");
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [chatDetails, setChatDetails] = useState(null);
   const flatListRef = useRef(null);
 
-  // Get chatId from route params if available
   const chatId = route.params?.chatId;
 
-  const fetchChat = useCallback(
-    async (showLoading = false) => {
-      try {
-        if (showLoading) setLoading(true);
+  const fetchChat = useCallback(async () => {
+    try {
+      if (!userId) return; // Don't fetch if no user ID
 
-        let response;
-        if (chatId) {
-          // Fetch by chatId if available
-          response = await axios.get(`${BACKEND_URI}/api/chatAdmin/${chatId}`, {
+      let response;
+
+      // Try to get existing chat first
+      if (chatId) {
+        response = await axios.get(`${BACKEND_URI}/api/chatAdmin/${chatId}`, {
+          headers: {
+            Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
+          },
+        });
+      } else {
+        // Fallback to create new chat if none exists
+        response = await axios.post(
+          `${BACKEND_URI}/api/chatAdmin/start`,
+          { userId },
+          {
             headers: {
               Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
             },
-          });
-          setChatDetails({
-            userId: response.data.userId,
-            adminId: response.data.adminId,
-            status: response.data.status,
-          });
-          setMessages(response.data.messages || []);
-        } else if (userId) {
-          // Fallback to fetch by userId
-          response = await axios.get(
-            `${BACKEND_URI}/api/chatAdmin/messages/${userId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
-              },
-            }
-          );
-          setMessages(response.data.messages || []);
-        }
-
-        setError(null);
-      } catch (error) {
-        console.error("Fetch error:", error);
-        setError(error.response?.data?.message || "Failed to load chat");
-      } finally {
-        if (showLoading) setLoading(false);
+          }
+        );
       }
-    },
-    [chatId, userId]
-  );
+
+      setChatDetails({
+        userId: response.data.userId,
+        adminId: response.data.adminId,
+        status: response.data.status,
+        _id: response.data._id, // Store chat ID
+      });
+      setMessages(response.data.messages || []);
+    } catch (error) {
+      if (error.response?.status !== 404) {
+        // Only log non-404 errors
+        console.error("Fetch error:", error);
+      }
+    }
+  }, [chatId, userId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      await fetchChat();
-    } catch (error) {
-      console.error("Refresh error:", error);
-      setError("Failed to refresh messages");
-    } finally {
-      setRefreshing(false);
-    }
+    await fetchChat();
+    setRefreshing(false);
   };
 
-  // Initialize chat and set up polling
   useEffect(() => {
     let interval;
+    let retryCount = 0;
+    const maxRetries = 3;
 
     const initializeChat = async () => {
       try {
         const storedUserId = await AsyncStorage.getItem("userId");
-        if (!storedUserId) {
-          setError("Please login to continue");
-          return;
-        }
+        if (!storedUserId) return;
 
         setUserId(storedUserId);
-        await fetchChat(true); // Initial load with spinner
+        await fetchChat();
 
-        // Set up polling every 2 seconds
-        interval = setInterval(() => {
-          fetchChat();
-        }, 2000);
+        // Only start polling after successful initial fetch
+        interval = setInterval(async () => {
+          try {
+            await fetchChat();
+            retryCount = 0; // Reset retry count on success
+          } catch (err) {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              clearInterval(interval); // Stop polling after max retries
+            }
+          }
+        }, 5000); // Reduced polling interval to 5 seconds
       } catch (err) {
         console.error("Initialization error:", err);
-        setError("Failed to load chat");
       }
     };
 
@@ -138,17 +132,12 @@ const UserAdminChatScreen = ({ navigation, route }) => {
     };
 
     try {
-      // Optimistic UI update
       setMessages((prev) => [...prev, tempMessage]);
       setMessageText("");
 
-      // Send to backend
       const response = await axios.post(
         `${BACKEND_URI}/api/chatAdmin/send`,
-        {
-          userId,
-          message: messageText,
-        },
+        { userId, message: messageText },
         {
           headers: {
             Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
@@ -156,23 +145,19 @@ const UserAdminChatScreen = ({ navigation, route }) => {
         }
       );
 
-      // Replace temp message with actual message from server
       setMessages((prev) => [
         ...prev.filter((msg) => msg._id !== tempId),
         {
           ...response.data.newMessage,
-          _id: response.data.newMessage._id || tempId, // Fallback to tempId if missing
+          _id: response.data.newMessage._id || tempId,
         },
       ]);
 
-      // Scroll to bottom
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch (error) {
       console.error("Send error:", error);
-      Alert.alert("Error", "Failed to send message. Please try again.");
-      // Remove the optimistic update if failed
       setMessages((prev) => prev.filter((msg) => msg._id !== tempId));
     }
   };
@@ -237,11 +222,42 @@ const UserAdminChatScreen = ({ navigation, route }) => {
     );
   };
 
+  const renderChatContent = () => {
+    if (messages.length === 0 && !loading) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>No messages yet</Text>
+          <TouchableOpacity style={styles.startChatButton} onPress={fetchChat}>
+            <Text style={styles.startChatButtonText}>Start Chat</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderItem}
+        keyExtractor={(item) =>
+          item._id?.toString() || Math.random().toString()
+        }
+        contentContainerStyle={styles.messagesList}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#FF0050"]}
+          />
+        }
+      />
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { paddingBottom: insets.bottom }]}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -263,29 +279,14 @@ const UserAdminChatScreen = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Chat Area */}
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.select({
-          ios: 0,
-          android: 20,
-        })}
+        keyboardVerticalOffset={Platform.select({ ios: 0, android: 20 })}
       >
         {loading && messages.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FF0050" />
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="warning-outline" size={32} color="#FF0050" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => fetchChat(true)}
-            >
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </TouchableOpacity>
           </View>
         ) : (
           <FlatList
@@ -294,7 +295,7 @@ const UserAdminChatScreen = ({ navigation, route }) => {
             renderItem={renderItem}
             keyExtractor={(item) =>
               item._id?.toString() || Math.random().toString()
-            } // Safe key extractor
+            }
             contentContainerStyle={styles.messagesList}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() =>
@@ -309,14 +310,11 @@ const UserAdminChatScreen = ({ navigation, route }) => {
                 onRefresh={handleRefresh}
                 colors={["#FF0050"]}
                 tintColor="#FF0050"
-                backgroundColor="#000"
-                progressBackgroundColor="#1E1E1E"
               />
             }
           />
         )}
 
-        {/* Input Area */}
         <View
           style={[
             styles.inputArea,

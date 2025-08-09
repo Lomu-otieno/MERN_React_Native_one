@@ -264,4 +264,27 @@ router.post("/close", async (req, res) => {
   }
 });
 
+router.post("/start", async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    // Check if chat already exists
+    let chat = await Chat.findOne({ userId });
+
+    if (!chat) {
+      // Create new chat
+      chat = new Chat({
+        userId,
+        status: "pending",
+        messages: [],
+      });
+      await chat.save();
+    }
+
+    res.status(200).json(chat);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to start chat" });
+  }
+});
+
 export default router;
