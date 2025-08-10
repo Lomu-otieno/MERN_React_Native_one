@@ -29,7 +29,7 @@ password_router.post("/forgot-password", async (req, res) => {
     await user.save();
 
     // Create reset link
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    const resetLink = `${process.env.PASSWORD_URI}/reset-password/${resetToken}`;
 
     // Email content
     const message = `
