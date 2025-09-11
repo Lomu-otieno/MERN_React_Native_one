@@ -18,7 +18,9 @@
         "resizeMode": "cover",
         "backgroundColor": "#000"
       },
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.lomu",
+      "buildNumber": "1.0.0"
     },
     "android": {
       "splash": {
@@ -30,10 +32,19 @@
         "foregroundImage": "./assets/splash_lomu.png",
         "backgroundColor": "#000"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.yourcompany.lomu",
+      "versionCode": 1,
+      "permissions": []
     },
     "web": {
       "favicon": "./assets/splash_lomu.png"
-    }
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ]
   }
 }
