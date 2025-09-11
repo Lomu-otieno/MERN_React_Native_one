@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 16.17.4",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "BACKEND_URI": "https://dev-backend.com",
+        "ADMIN_ID": "111111111111111111111111"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "BACKEND_URI": "https://staging-backend.com",
+        "ADMIN_ID": "222222222222222222222222"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "BACKEND_URI": "https://lomu-dating-backend.onrender.com",
+        "ADMIN_ID": "507f1f77bcf86cd799439011"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
