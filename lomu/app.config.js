@@ -1,5 +1,3 @@
-import "dotenv/config";
-
 export default {
   expo: {
     name: "lomu",
@@ -50,8 +48,6 @@ export default {
       eas: {
         projectId: "46f20cfb-2119-4700-a273-3dd63d7b73dc",
       },
-      backendUri: process.env.BACKEND_URI,
-      adminId: process.env.ADMIN_ID,
     },
   },
 };

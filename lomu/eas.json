@@ -8,15 +8,15 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "BACKEND_URI": "https://dev-backend.com",
-        "ADMIN_ID": "111111111111111111111111"
+        "BACKEND_URI": "https://lomu-dating-backend.onrender.com",
+        "ADMIN_ID": "507f1f77bcf86cd799439011"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "BACKEND_URI": "https://staging-backend.com",
-        "ADMIN_ID": "222222222222222222222222"
+        "BACKEND_URI": "https://lomu-dating-backend.onrender.com",
+        "ADMIN_ID": "507f1f77bcf86cd799439011"
       }
     },
     "production": {
