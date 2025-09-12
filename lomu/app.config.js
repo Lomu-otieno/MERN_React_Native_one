@@ -46,7 +46,7 @@ export default {
     assetBundlePatterns: ["**/*"],
     extra: {
       eas: {
-        projectId: "46f20cfb-2119-4700-a273-3dd63d7b73dc",
+        projectId: "bfbc21bf-0cad-49c8-97b4-0673b34a4f23",
       },
     },
   },
