@@ -1,9 +1,11 @@
-const LOGIN_URL = "https://lomu-dating-backend.onrender.com/api/auth/login";
+// API endpoint for register
+const REGISTER_URL =
+  "https://lomu-dating-backend.onrender.com/api/auth/register";
 
-const loginBtn = document.getElementById("loginBtn");
+const registerBtn = document.getElementById("registerBtn");
 const splash = document.getElementById("splash");
 
-loginBtn.addEventListener("click", async () => {
+registerBtn.addEventListener("click", async () => {
   const username = document.getElementById("username").value.trim();
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
@@ -16,7 +18,7 @@ loginBtn.addEventListener("click", async () => {
   splash.classList.remove("hidden"); // Show loading screen
 
   try {
-    const response = await fetch(LOGIN_URL, {
+    const response = await fetch(REGISTER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password }),
@@ -28,26 +30,23 @@ loginBtn.addEventListener("click", async () => {
     }
 
     const data = await response.json();
+
+    // Store token & user info
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("userId", data.user.id);
 
-    alert("Login Successful! Redirecting...");
-    window.location.href = "main.html"; // <-- redirect after login
+    alert("Registration successful! Redirecting to main page...");
+    window.location.href = "main.html"; // after registration redirect
   } catch (error) {
-    console.error("Login error:", error.message);
-    alert("Login Failed: " + error.message);
+    console.error("Register error:", error.message);
+    alert("Register Failed: " + error.message);
   } finally {
-    splash.classList.add("hidden"); // Hide loading screen
+    splash.classList.add("hidden"); // Hide loader
   }
 });
 
-// Navigate to Register Page
-document.getElementById("registerLink").addEventListener("click", () => {
-  window.location.href = "register.html";
-});
-
-// Navigate to Forgot Password Page
-document.getElementById("forgotLink").addEventListener("click", () => {
-  window.location.href = "forgotPassword.html";
+// Link back to login
+document.getElementById("loginLink").addEventListener("click", () => {
+  window.location.href = "loginScreen.html"; // login page
 });
