@@ -1,5 +1,4 @@
 node_modules/
-.expo/
 .expo-shared/
 .env
 *.env
@@ -11,3 +10,10 @@ build/
 web-build/
 .DS_Store
 Thumbs.db
+.expo/
+.expo/
+.expo/
+# Expo
+.expo/
+android/
+ios/
