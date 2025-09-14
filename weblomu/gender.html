@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Set Gender</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(#121212, #1E1E1E);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: #fff;
+    }
+    .container {
+      background-color: #1E1E1E;
+      border-radius: 16px;
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      color: #FF0050;
+      margin-bottom: 10px;
+    }
+    p {
+      text-align: center;
+      color: #aaa;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 90%;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      background: #252525;
+      color: #fff;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    .gender-container {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .gender-btn {
+      flex: 1;
+      margin: 0 5px;
+      padding: 14px;
+      text-align: center;
+      border-radius: 12px;
+      border: 1px solid #333;
+      background: #252525;
+      cursor: pointer;
+      font-weight: 600;
+      color: #ddd;
+    }
+    .gender-btn.selected {
+      background-color: #1E3A8A;
+      border-color: #3B82F6;
+      color: #fff;
+    }
+    .btn {
+      width: 100%;
+      padding: 16px;
+      background-color: #FF0050;
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .message {
+      margin-bottom: 20px;
+      padding: 14px;
+      border-radius: 12px;
+      text-align: center;
+      font-weight: 500;
+    }
+    .success {
+      background-color: #14532d;
+      color: #bbf7d0;
+    }
+    .error {
+      background-color: #450a0a;
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Complete Your Profile</h1>
+    <p>Let us know your gender to find better matches</p>
+
+    <div id="message"></div>
+
+    <input type="email" id="email" placeholder="Enter your email" />
+
+    <div class="gender-container">
+      <div id="maleBtn" class="gender-btn">Male</div>
+      <div id="femaleBtn" class="gender-btn">Female</div>
+    </div>
+
+    <button id="submitBtn" class="btn" disabled>Continue</button>
+  </div>
+
+  <script>
+    const BACKEND_URI = "https://lomu-dating-backend.onrender.com"; // change to your backend URL
+    let selectedGender = null;
+
+    const emailInput = document.getElementById("email");
+    const maleBtn = document.getElementById("maleBtn");
+    const femaleBtn = document.getElementById("femaleBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const messageDiv = document.getElementById("message");
+
+    function showMessage(text, type) {
+      messageDiv.innerHTML = `<div class="message ${type}">${text}</div>`;
+      setTimeout(() => (messageDiv.innerHTML = ""), 3000);
+    }
+
+    function updateButtonState() {
+      submitBtn.disabled = !emailInput.value || !selectedGender;
+    }
+
+    maleBtn.addEventListener("click", () => {
+      selectedGender = "male";
+      maleBtn.classList.add("selected");
+      femaleBtn.classList.remove("selected");
+      updateButtonState();
+    });
+
+    femaleBtn.addEventListener("click", () => {
+      selectedGender = "female";
+      femaleBtn.classList.add("selected");
+      maleBtn.classList.remove("selected");
+      updateButtonState();
+    });
+
+    emailInput.addEventListener("input", updateButtonState);
+
+    submitBtn.addEventListener("click", async () => {
+      const email = emailInput.value.trim();
+
+      if (!email || !selectedGender) {
+        showMessage("Please provide both email and gender", "error");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Loading...";
+
+      try {
+        const res = await fetch(`${BACKEND_URI}/api/users/set-gender`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, gender: selectedGender }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          showMessage("Gender updated successfully!", "success");
+          setTimeout(() => {
+            window.location.href = "loginScreen.html";
+          }, 2000);
+        } else {
+          showMessage(data.message || "Something went wrong", "error");
+        }
+      } catch (err) {
+        console.error(err);
+        showMessage("Could not update gender", "error");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Continue";
+      }
+    });
+  </script>
+</body>
+</html>

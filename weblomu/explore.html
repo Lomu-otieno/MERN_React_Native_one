@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Explore - Lomu</title>
+  <link rel="stylesheet" href="explore.css"/>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1 class="appName">lomu</h1>
+    <div class="header-icons">
+      <button id="chatBtn">💬</button>
+      <button id="cardsBtn">🎴</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main id="explore-container">
+    <div id="loading" class="loading hidden">Loading...</div>
+    <div id="cards" class="cards"></div>
+    <div id="empty" class="empty hidden">
+      <p>No users available nearby</p>
+      <button id="refreshBtn">🔄 Refresh</button>
+    </div>
+  </main>
+
+  <!-- Action Buttons -->
+  <div class="actions">
+    <button id="passBtn" class="action-btn">❌</button>
+    <button id="likeBtn" class="action-btn">❤️</button>
+  </div>
+
+  <!-- Error message -->
+  <div id="message" class="message hidden"></div>
+
+  <script src="explore.js"></script>
+</body>
+</html>

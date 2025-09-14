@@ -36,8 +36,8 @@ registerBtn.addEventListener("click", async () => {
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("userId", data.user.id);
 
-    alert("Registration successful! Redirecting to main page...");
-    window.location.href = "main.html"; // after registration redirect
+    // alert("Registration successful! Redirecting to main page...");
+    window.location.href = "gender.html"; // after registration redirect
   } catch (error) {
     console.error("Register error:", error.message);
     alert("Register Failed: " + error.message);
