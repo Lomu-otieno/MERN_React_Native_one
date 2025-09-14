@@ -400,13 +400,9 @@ user_router.put("/location", protect, loginLimiter, async (req, res) => {
   }
 
   try {
-    console.log("📍 Received coords:", latitude, longitude);
-    console.log("👤 User ID from token:", req.user.id);
-
     let locationName;
     try {
       locationName = await getLocationName(latitude, longitude);
-      console.log("📍 Resolved location name:", locationName);
     } catch (geocodeError) {
       console.warn(
         "⚠️ Geocoding failed, using coordinates:",
@@ -430,7 +426,6 @@ user_router.put("/location", protect, loginLimiter, async (req, res) => {
       locationName,
     });
   } catch (err) {
-    console.error("🔥 Error updating location:", err.message || err);
     res
       .status(500)
       .json({ message: "Failed to update location", error: err.message });

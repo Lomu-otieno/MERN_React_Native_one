@@ -197,48 +197,65 @@ body {
   color: #FF0050;
 }
 
-.loading, .empty {
+.loading,
+.empty {
   text-align: center;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 100%;
-  margin-left: -80%;
+  min-height: 60vh; 
+  gap: 16px;
+  margin:50%;
 }
 
 .empty i {
-  font-size: 64px;
-  color: #333;
-  margin-bottom: 16px;
-  
+  font-size: 72px;
+  color: #FF0050;
+  margin-bottom: 8px;
 }
 
 .empty h2 {
-  font-size: 20px;
-  margin-bottom: 8px;
+  font-size: 22px;
+  margin: 0;
   color: white;
+  font-weight: 600;
 }
 
 .empty p {
-  color: #666;
-  margin-bottom: 24px;
+  color: #aaa;
+  font-size: 15px;
+  margin: 0 0 12px 0;
   text-align: center;
-  line-height: 1.5;
+  line-height: 1.6;
+  max-width: 260px;
 }
 
 #refreshBtn {
-  background: transparent;
-  border: 1px solid #FF0050;
-  color: #FF0050;
-  padding: 10px 20px;
-  border-radius: 20px;
-  display: flex;
+  background: #FF0050;
+  border: none;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 25px;
+  display:flex;
+  flex-direction: column-reverse;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 15px;
+  transition: background 0.2s ease, transform 0.1s ease;
 }
+
+#refreshBtn:hover {
+  background: #e60047;
+  transform: translateY(-2px);
+}
+
+#refreshBtn i {
+  font-size: 16px;
+}
+
 
 .message {
   position: fixed;

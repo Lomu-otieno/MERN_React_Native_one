@@ -233,6 +233,7 @@ function endDrag() {
 }
 
 // Handle like/pass actions
+// Handle like/pass actions
 async function handleAction(action) {
   if (currentIndex >= users.length || users[currentIndex].isPlaceholder) {
     showMessage("No more users");
@@ -249,18 +250,21 @@ async function handleAction(action) {
 
     if (!res.ok) throw new Error("Request failed");
 
-    showMessage(`${action === "like" ? "LIKED" : "PASSED"} @${user.username}`);
+    showMessage(`${action === "like" ? "like" : "passed"} @${user.username}`);
 
     // Animate current card out
     const oldCard = currentCard;
+    oldCard.style.transition = "transform 0.3s ease, opacity 0.3s ease";
     oldCard.style.transform =
       action === "like"
         ? "translateX(1000px) rotate(30deg)"
         : "translateX(-1000px) rotate(-30deg)";
     oldCard.style.opacity = "0";
 
-    // 👉 Advance index and reattach swipe immediately
+    // 👉 Advance index *immediately*
     currentIndex++;
+
+    // Immediately set up the next card for swiping
     updateCardPositions();
 
     // Remove the old card after the animation
@@ -271,12 +275,13 @@ async function handleAction(action) {
       if (currentIndex >= users.length - 1) {
         empty.classList.remove("hidden");
       }
-    }, 100);
+    }, 300); // matches transition
   } catch (err) {
     console.error(`${action} error:`, err.message);
     showMessage(`Failed to ${action} user`);
     // Reset card if request failed
     currentCard.style.transform = "";
+    currentCard.style.opacity = "1";
     currentCard.querySelector(".swipe-right").style.opacity = 0;
     currentCard.querySelector(".swipe-left").style.opacity = 0;
   }
@@ -284,22 +289,37 @@ async function handleAction(action) {
 
 // Event listeners
 function setupEventListeners() {
-  document.getElementById("likeBtn").addEventListener("click", () => {
-    if (users[currentIndex] && !users[currentIndex].isPlaceholder) {
-      handleAction("like");
-    }
-  });
+  const likeBtn = document.getElementById("likeBtn");
+  const passBtn = document.getElementById("passBtn");
+  const refreshBtn = document.getElementById("refreshBtn");
 
-  document.getElementById("passBtn").addEventListener("click", () => {
-    if (users[currentIndex] && !users[currentIndex].isPlaceholder) {
-      handleAction("pass");
-    }
-  });
+  if (likeBtn) {
+    likeBtn.addEventListener("click", () => {
+      if (users[currentIndex] && !users[currentIndex].isPlaceholder) {
+        handleAction("like");
+      }
+    });
+  }
 
-  document.getElementById("refreshBtn").addEventListener("click", fetchUsers);
+  if (passBtn) {
+    passBtn.addEventListener("click", () => {
+      if (users[currentIndex] && !users[currentIndex].isPlaceholder) {
+        handleAction("pass");
+      }
+    });
+  }
+
+  // Make sure refreshBtn exists before binding
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      showMessage("Refreshing...");
+      fetchUsers();
+    });
+  }
 
   document.addEventListener("click", function (e) {
     if (e.target.id === "refreshEndBtn") {
+      showMessage("Refreshing...");
       fetchUsers();
     }
   });
