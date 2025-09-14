@@ -20,13 +20,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { BACKEND_URI } from "@env";
 
-if (!global.__RNViewOverflowRegistered) {
-  const { registerComponent } = require("react-native");
-  const RNViewOverflow = require("../Components/RNViewOverflow").default;
-  registerComponent("RNViewOverflow", () => RNViewOverflow);
-  global.__RNViewOverflowRegistered = true;
-}
-
 const SERVER_URL = `${BACKEND_URI}`;
 const { width, height } = Dimensions.get("window");
 
