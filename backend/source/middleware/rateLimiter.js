@@ -44,5 +44,5 @@ export const apiLimiter = rateLimit({
   },
 });
 
+// Export loginLimiter as default
 export default loginLimiter;
-export { nominatimLimiter, apiLimiter };
