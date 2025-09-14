@@ -4,37 +4,51 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Explore - Lomu</title>
-  <link rel="stylesheet" href="explore.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="explore.css">
 </head>
 <body>
   <!-- Header -->
   <header class="header">
     <h1 class="appName">lomu</h1>
     <div class="header-icons">
-      <button id="chatBtn">💬</button>
-      <button id="cardsBtn">🎴</button>
+      <button id="chatBtn"><i class="fas fa-comment-dots"></i></button>
+      <button id="cardsBtn"><i class="fas fa-id-card"></i></button>
     </div>
   </header>
 
   <!-- Main Container -->
   <main id="explore-container">
-    <div id="loading" class="loading hidden">Loading...</div>
-    <div id="cards" class="cards"></div>
+    <div id="loading" class="loading hidden">
+      <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #FF0050;"></i>
+      <p style="margin-top: 20px;">Loading users...</p>
+    </div>
+    
+    <div class="cards-stack">
+      <div id="cards"></div>
+    </div>
+    
     <div id="empty" class="empty hidden">
-      <p>No users available nearby</p>
-      <button id="refreshBtn">🔄 Refresh</button>
+      <i class="fas fa-users"></i>
+      <h2>Check back later for new profiles nearby</h2>
+      <button id="refreshBtn">
+        <i class="fas fa-sync-alt"></i> Refresh
+      </button>
     </div>
   </main>
 
   <!-- Action Buttons -->
   <div class="actions">
-    <button id="passBtn" class="action-btn">❌</button>
-    <button id="likeBtn" class="action-btn">❤️</button>
+    <button id="passBtn" class="action-btn pass">
+      <i class="fas fa-times"></i>
+    </button>
+    <button id="likeBtn" class="action-btn like">
+      <i class="fas fa-heart"></i>
+    </button>
   </div>
 
   <!-- Error message -->
   <div id="message" class="message hidden"></div>
-
-  <script src="explore.js"></script>
+<script src="explore.js"></script>
 </body>
 </html>
