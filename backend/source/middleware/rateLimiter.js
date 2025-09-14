@@ -43,3 +43,6 @@ export const apiLimiter = rateLimit({
     message: "Too many requests from this IP, please try again later.",
   },
 });
+
+export default loginLimiter;
+export { nominatimLimiter, apiLimiter };

@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import generateToken from "../lib/generateToken.js";
-import loginLimiter from "../middleware/rateLimiter.js";
+import { loginLimiter } from "../middleware/rateLimiter.js";
 import protect from "../middleware/authMiddleware.js";
 
 const router = express.Router();
