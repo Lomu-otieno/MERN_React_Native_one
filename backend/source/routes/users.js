@@ -5,7 +5,7 @@ import { storage } from "../lib/cloudinary.js";
 import { cloudinary } from "../lib/cloudinary.js";
 import multer from "multer";
 import { getLocationName } from "../middleware/geolocation.js";
-import { loginLimiter } from "../utils/rateLimiter.js";
+import { loginLimiter } from "../middleware/rateLimiter.js";
 
 const upload = multer({ storage });
 const user_router = express.Router();

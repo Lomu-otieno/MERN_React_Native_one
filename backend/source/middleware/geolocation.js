@@ -1,5 +1,5 @@
 import fetch from "node-fetch";
-import { nominatimLimiter } from "./rateLimiter.js";
+import { nominatimLimiter } from "./rateLimiter";
 
 // Simple cache implementation
 const locationCache = new Map();
