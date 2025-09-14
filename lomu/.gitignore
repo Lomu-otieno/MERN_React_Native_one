@@ -10,9 +10,6 @@ build/
 web-build/
 .DS_Store
 Thumbs.db
-.expo/
-.expo/
-.expo/
 # Expo
 .expo/
 android/
