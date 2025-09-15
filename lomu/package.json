@@ -30,7 +30,6 @@
     "expo-location": "^18.1.6",
     "expo-notifications": "^0.31.4",
     "expo-server-sdk": "^3.15.0",
-    "expo-splash-screen": "^0.30.10",
     "expo-status-bar": "^2.2.3",
     "lodash": "^4.17.21",
     "metro": "^0.82.5",

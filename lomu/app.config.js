@@ -24,7 +24,7 @@ export default {
     },
     android: {
       splash: {
-        image: "./assets/splash_icon.png",
+        image: "./assets/splash_lomu.png",
         resizeMode: "cover",
         backgroundColor: "#000000",
       },

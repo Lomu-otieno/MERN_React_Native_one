@@ -41,7 +41,7 @@ const AuthLoadingScreen = () => {
     <View style={styles.container}>
       <Animated.View style={{ ...styles.content, opacity: fadeAnim }}>
         <Image
-          source={require("../assets/splash_icon.png")} // Replace with your logo/image
+          source={require("../assets/splash_lomu.png")} // Replace with your logo/image
           style={styles.image}
           resizeMode="contain"
         />

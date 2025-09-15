@@ -13,6 +13,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { BACKEND_URI } from "@env";
+
 const LOGIN_URL = `${BACKEND_URI}/api/auth/login`;
 
 const LoginScreen = () => {
@@ -23,18 +24,36 @@ const LoginScreen = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Function to remove spaces from username
+  const handleUsernameChange = (text) => {
+    // Remove any spaces from the username
+    const cleanedUsername = text.replace(/\s/g, "");
+    setUsername(cleanedUsername);
+  };
+
   const handleLogin = async () => {
-    if (!username || !email || !password) {
+    // Trim and validate inputs
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedEmail || !trimmedPassword) {
       Alert.alert("Missing Fields", "Please enter all fields.");
+      return;
+    }
+
+    // Additional validation for username (no spaces allowed)
+    if (username.includes(" ")) {
+      Alert.alert("Invalid Username", "Username cannot contain spaces.");
       return;
     }
 
     setLoading(true);
     try {
       const response = await axios.post(LOGIN_URL, {
-        username,
-        email,
-        password,
+        username: trimmedUsername,
+        email: trimmedEmail,
+        password: trimmedPassword,
       });
 
       const { token, user } = response.data;
@@ -54,7 +73,7 @@ const LoginScreen = () => {
     }
   };
 
-  // 👇 Splash screen during login
+  // Splash screen during login
   if (loading) {
     return (
       <View style={styles.splashContainer}>
@@ -76,8 +95,9 @@ const LoginScreen = () => {
         placeholderTextColor="#fff"
         autoCapitalize="none"
         value={username}
-        onChangeText={setUsername}
+        onChangeText={handleUsernameChange} // Use the custom handler
         style={styles.input}
+        autoCorrect={false}
       />
 
       <TextInput
@@ -88,6 +108,7 @@ const LoginScreen = () => {
         value={email}
         onChangeText={setEmail}
         style={styles.input}
+        autoCorrect={false}
       />
 
       <TextInput
@@ -97,6 +118,7 @@ const LoginScreen = () => {
         value={password}
         onChangeText={setPassword}
         style={styles.input}
+        autoCorrect={false}
       />
 
       <TouchableOpacity onPress={handleLogin} style={styles.button}>
@@ -113,7 +135,6 @@ const LoginScreen = () => {
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
