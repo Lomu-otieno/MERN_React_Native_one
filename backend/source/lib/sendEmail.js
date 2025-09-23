@@ -1,36 +1,34 @@
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import nodemailer from "nodemailer";
 
 const sendEmail = async (to, subject, html) => {
   try {
-    // console.log(`📧 Attempting to send email to: ${to}`);
+    // Create a test account (works immediately, no setup)
+    const testAccount = await nodemailer.createTestAccount();
 
-    const { data, error } = await resend.emails.send({
-      from: "Lomu <onboarding@resend.dev>",
+    const transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    });
+
+    const result = await transporter.sendMail({
+      from: `"Lomu" <${testAccount.user}>`,
       to: to,
       subject: subject,
       html: html,
     });
 
-    if (error) {
-      // console.error("❌ Resend error:", error);
-      throw new Error(error.message);
-    }
+    const previewUrl = nodemailer.getTestMessageUrl(result);
+    console.log("✅ Email sent! Preview:", previewUrl);
 
-    // console.log("✅ Email sent successfully via Resend");
-    // console.log("📫 Email ID:", data?.id);
-    return data;
+    return result;
   } catch (error) {
-    // console.error("❌ Email sending failed:", error);
-
-    // Fallback: log the reset link for manual testing
-    const resetLinkMatch = html.match(/https?:\/\/[^\s"']+/);
-    if (resetLinkMatch) {
-      // console.log("🔗 RESET LINK FOR MANUAL TESTING:", resetLinkMatch[0]);
-    }
-
-    throw new Error("Email service temporary unavailable");
+    console.error("❌ Email failed:", error);
+    throw error;
   }
 };
 
