@@ -36,7 +36,7 @@ password_router.post("/forgot-password", async (req, res) => {
     user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    const resetLink = `${process.env.PASSWORD_URI}/reset-password?token=${resetToken}`;
+    const resetLink = `${process.env.PASSWORD_URI}/index.html?token=${resetToken}`;
     console.log("🔗 Reset link generated:", resetLink);
 
     // Try to send email with better HTML content
