@@ -37,22 +37,32 @@ password_router.post("/forgot-password", async (req, res) => {
     await user.save();
 
     const resetLink = `${process.env.PASSWORD_URI}/reset-password?token=${resetToken}`;
+    console.log("🔗 Reset link generated:", resetLink);
 
-    console.log("🔗 RESET LINK FOR TESTING:", resetLink);
-
-    // Try to send email
+    // Try to send email with better HTML content
     try {
-      const message = `Reset link: ${resetLink}`;
+      const message = `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2 style="color: #FF0050;">Password Reset Request</h2>
+          <p>Hello ${user.username},</p>
+          <p>Click the link below to reset your password:</p>
+          <a href="${resetLink}" 
+             style="background: #FF0050; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Reset Password
+          </a>
+          <p><strong>This link expires in 10 minutes.</strong></p>
+          <p>If you didn't request this, please ignore this email.</p>
+        </div>
+      `;
       await sendEmail(user.email, "Password Reset Request", message);
     } catch (emailError) {
       console.log("⚠️ Email not sent, but token saved. Reset link:", resetLink);
     }
 
-    // For testing, include the reset link in response
     res.status(200).json({
-      message: "Reset link generated",
-      resetLink: process.env.NODE_ENV === "development" ? resetLink : undefined,
-      token: process.env.NODE_ENV === "development" ? resetToken : undefined,
+      message: "If your email exists, a reset link has been sent",
+      // Include debug info
+      debug: process.env.NODE_ENV === "development" ? { resetLink } : undefined,
     });
   } catch (error) {
     console.error("❌ Forgot password error:", error);
