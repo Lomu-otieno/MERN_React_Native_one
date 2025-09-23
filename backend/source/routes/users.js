@@ -350,6 +350,12 @@ user_router.get("/matches", protect, async (req, res) => {
 });
 user_router.get("/match/:id", protect, async (req, res) => {
   try {
+    const { id } = req.params;
+
+    // Validate that ID is a valid MongoDB ObjectId
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
     const user = await User.findById(req.params.id).select("-password");
 
     if (!user) {
@@ -400,16 +406,8 @@ user_router.put("/location", protect, loginLimiter, async (req, res) => {
   }
 
   try {
-    let locationName;
-    try {
-      locationName = await getLocationName(latitude, longitude);
-    } catch (geocodeError) {
-      console.warn(
-        "⚠️ Geocoding failed, using fallback:",
-        geocodeError.message
-      );
-      locationName = "Maseno";
-    }
+    // Get location name with improved error handling
+    const locationName = await getLocationName(latitude, longitude);
 
     await User.findByIdAndUpdate(req.user.id, {
       location: {
@@ -422,11 +420,25 @@ user_router.put("/location", protect, loginLimiter, async (req, res) => {
     res.status(200).json({
       message: "Location updated successfully",
       locationName,
+      coordinates: { latitude, longitude },
     });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Failed to update location", error: err.message });
+    console.error("Location update error:", err);
+
+    // Even if geocoding fails, still update coordinates
+    await User.findByIdAndUpdate(req.user.id, {
+      location: {
+        type: "Point",
+        coordinates: [longitude, latitude],
+      },
+      locationName: "Location Not Available",
+    });
+
+    res.status(200).json({
+      message: "Location coordinates updated (geocoding service unavailable)",
+      locationName: "Location Not Available",
+      coordinates: { latitude, longitude },
+    });
   }
 });
 
