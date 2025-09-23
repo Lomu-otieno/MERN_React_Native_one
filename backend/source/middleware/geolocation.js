@@ -53,9 +53,7 @@ async function tryAlternativeGeocoding(latitude, longitude) {
         "Unknown Area"
       );
     }
-  } catch (error) {
-    console.log("Alternative geocoding also failed:", error.message);
-  }
+  } catch (error) {}
   return null;
 }
 
@@ -101,9 +99,7 @@ export async function getLocationName(latitude, longitude) {
       setCachedLocation(latitude, longitude, locationName);
       return locationName;
     }
-  } catch (error) {
-    console.log(`First attempt failed: ${error.message}`);
-  }
+  } catch (error) {}
 
   // Second try: Alternative approach with even shorter timeout
   try {
@@ -115,9 +111,7 @@ export async function getLocationName(latitude, longitude) {
       setCachedLocation(latitude, longitude, alternativeResult);
       return alternativeResult;
     }
-  } catch (error) {
-    console.log(`Alternative approach also failed: ${error.message}`);
-  }
+  } catch (error) {}
 
   // Final fallback: Use offline reverse geocoding for known areas
   const offlineLocation = getOfflineLocationName(latitude, longitude);
