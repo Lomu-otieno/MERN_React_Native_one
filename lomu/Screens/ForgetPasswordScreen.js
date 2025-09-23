@@ -51,7 +51,6 @@ const ForgotPasswordScreen = () => {
   };
 
   const handleForgotPassword = async () => {
-    // Trim email input
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail) {
@@ -59,7 +58,6 @@ const ForgotPasswordScreen = () => {
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
       showMessage("Please enter a valid email address.", "error");
@@ -70,30 +68,31 @@ const ForgotPasswordScreen = () => {
     try {
       const res = await axios.post(SERVER_URL, { email: trimmedEmail });
 
-      // Show success message
+      // Always show success message for security
       showMessage(
-        res.data.message || "Check your email for reset link.",
+        "If that email exists, a reset link has been sent to your email.",
         "success"
       );
 
-      // Navigate to login after a brief delay to show success message
+      // Clear email field
+      setEmail("");
+
+      // Navigate after delay
       setTimeout(() => {
         navigation.navigate("Login");
       }, 3000);
     } catch (err) {
-      console.error(
-        "Forgot password error:",
-        err.response?.data || err.message
-      );
+      console.error("Forgot password error:", err);
+
+      // Show generic error message
       showMessage(
-        err.response?.data?.message || "Something went wrong",
+        "Unable to process request. Please try again later.",
         "error"
       );
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Forgot Password</Text>
