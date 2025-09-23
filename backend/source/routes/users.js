@@ -357,7 +357,8 @@ user_router.get("/match/:id", protect, async (req, res) => {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
-    const user = await User.findById(req.params.id).select("-password");
+
+    const user = await User.findById(id).select("-password"); // Changed from req.params.id to id
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
