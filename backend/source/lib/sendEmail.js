@@ -4,7 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendEmail = async (to, subject, html) => {
   try {
-    console.log(`📧 Attempting to send email to: ${to}`);
+    // console.log(`📧 Attempting to send email to: ${to}`);
 
     const { data, error } = await resend.emails.send({
       from: "Lomu <onboarding@resend.dev>",

@@ -9,7 +9,7 @@ const password_router = express.Router();
 password_router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
 
-  // console.log("🔐 Forgot password request for:", email);
+  console.log("🔐 Forgot password request for:", email);
 
   try {
     if (!email) {
@@ -19,11 +19,11 @@ password_router.post("/forgot-password", async (req, res) => {
     const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
-      // console.log("❌ Email not found in database");
+      console.log("❌ Email not found in database");
       return res.status(200).json({ message: "A reset link has been sent" });
     }
 
-    // console.log("✅ User found:", user.email);
+    console.log("✅ User found:", user.email);
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -56,7 +56,7 @@ password_router.post("/forgot-password", async (req, res) => {
       `;
       await sendEmail(user.email, "Password Reset Request", message);
     } catch (emailError) {
-      // console.log("⚠️ Email not sent, but token saved. Reset link:", resetLink);
+      console.log("⚠️ Email not sent, but token saved. Reset link:", resetLink);
     }
 
     res.status(200).json({
@@ -65,7 +65,7 @@ password_router.post("/forgot-password", async (req, res) => {
       debug: process.env.NODE_ENV === "development" ? { resetLink } : undefined,
     });
   } catch (error) {
-    // console.error("❌ Forgot password error:", error);
+    console.error("❌ Forgot password error:", error);
     res.status(500).json({ message: "Server error occurred" });
   }
 });
@@ -74,7 +74,7 @@ password_router.post("/reset-password/:token", async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
 
-  // console.log("Reset password attempt with token");
+  console.log("Reset password attempt with token");
 
   try {
     if (!token) {
@@ -107,11 +107,11 @@ password_router.post("/reset-password/:token", async (req, res) => {
 
     await user.save();
 
-    // console.log("Password reset successful for user:", user.email);
+    console.log("Password reset successful for user:", user.email);
 
     res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
-    // console.error("Reset password error:", error);
+    console.error("Reset password error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
