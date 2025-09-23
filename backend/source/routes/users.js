@@ -574,4 +574,34 @@ user_router.put("/push-token", protect, async (req, res) => {
     res.status(500).json({ message: "Failed to save token" });
   }
 });
+// Add this test route to help debug
+user_router.get("/test-geocoding", async (req, res) => {
+  const testCoords = [
+    { lat: -0.0012931, lon: 34.6183878 }, // Your problem coordinates
+    { lat: 40.7128, lon: -74.006 }, // New York City
+    { lat: 51.5074, lon: -0.1278 }, // London
+  ];
+
+  const results = [];
+
+  for (const coord of testCoords) {
+    try {
+      console.log(`\n🧪 Testing coordinates: (${coord.lat}, ${coord.lon})`);
+      const location = await getLocationName(coord.lat, coord.lon);
+      results.push({
+        coordinates: coord,
+        result: location,
+        status: "success",
+      });
+    } catch (error) {
+      results.push({
+        coordinates: coord,
+        result: error.message,
+        status: "error",
+      });
+    }
+  }
+
+  res.json({ geocodingTest: results });
+});
 export default user_router;
