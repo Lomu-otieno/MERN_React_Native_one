@@ -5,7 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
+  ActivityIndicator,
 } from "react-native";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
@@ -13,33 +13,81 @@ import { BACKEND_URI } from "@env";
 
 const SERVER_URL = `${BACKEND_URI}/api/password/forgot-password`;
 
+// Message Component
+const Message = ({ visible, type, message, onClose }) => {
+  if (!visible) return null;
+
+  const backgroundColor = type === "error" ? "#FF0050" : "#4CAF50";
+  const textColor = "#FFFFFF";
+
+  return (
+    <View style={[styles.messageContainer, { backgroundColor }]}>
+      <Text style={[styles.messageText, { color: textColor }]}>{message}</Text>
+      <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <Text style={[styles.closeButtonText, { color: textColor }]}>×</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const ForgotPasswordScreen = () => {
   const navigation = useNavigation();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({
+    visible: false,
+    type: "",
+    text: "",
+  });
+
+  // Function to show message
+  const showMessage = (text, type = "error") => {
+    setMessage({ visible: true, type, text });
+  };
+
+  // Function to hide message
+  const hideMessage = () => {
+    setMessage({ visible: false, type: "", text: "" });
+  };
 
   const handleForgotPassword = async () => {
-    if (!email) {
-      Alert.alert("Missing Field", "Please enter your email.");
+    // Trim email input
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      showMessage("Please enter your email.", "error");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      showMessage("Please enter a valid email address.", "error");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await axios.post(SERVER_URL, { email });
-      Alert.alert(
-        "Success",
-        res.data.message || "Check your email for reset link."
+      const res = await axios.post(SERVER_URL, { email: trimmedEmail });
+
+      // Show success message
+      showMessage(
+        res.data.message || "Check your email for reset link.",
+        "success"
       );
-      navigation.navigate("Login");
+
+      // Navigate to login after a brief delay to show success message
+      setTimeout(() => {
+        navigation.navigate("Login");
+      }, 3000);
     } catch (err) {
       console.error(
         "Forgot password error:",
         err.response?.data || err.message
       );
-      Alert.alert(
-        "Error",
-        err.response?.data?.message || "Something went wrong"
+      showMessage(
+        err.response?.data?.message || "Something went wrong",
+        "error"
       );
     } finally {
       setLoading(false);
@@ -49,25 +97,46 @@ const ForgotPasswordScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Forgot Password</Text>
+      <Text style={styles.subtitle}>
+        Enter your email address and we'll send you a link to reset your
+        password.
+      </Text>
+      <Message
+        visible={message.visible}
+        type={message.type}
+        message={message.text}
+        onClose={hideMessage}
+      />
+
       <TextInput
         placeholder="Enter your email"
-        placeholderTextColor="#fff"
+        placeholderTextColor="#666"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
         style={styles.input}
+        editable={!loading}
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleForgotPassword}>
-        <Text style={styles.buttonText}>
-          {loading ? "Sending..." : "Send Reset Link"}
-        </Text>
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleForgotPassword}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Text style={styles.buttonText}>Send Reset Link</Text>
+        )}
       </TouchableOpacity>
 
-      {/* <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.link}>Back to Login</Text>
-      </TouchableOpacity> */}
+      <TouchableOpacity
+        onPress={() => navigation.navigate("Login")}
+        disabled={loading}
+      >
+        <Text style={styles.link}>Login</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -75,7 +144,7 @@ const ForgotPasswordScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#121212",
     paddingHorizontal: 24,
     justifyContent: "center",
   },
@@ -83,8 +152,16 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
-    marginBottom: 32,
+    marginBottom: 16,
     color: "#E91E63",
+  },
+  subtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 32,
+    color: "#999",
+    lineHeight: 20,
+    paddingHorizontal: 20,
   },
   input: {
     borderWidth: 1,
@@ -109,6 +186,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  buttonDisabled: {
+    backgroundColor: "#C2185B",
+    opacity: 0.7,
+  },
   buttonText: {
     color: "#fff",
     fontWeight: "600",
@@ -119,6 +200,30 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 16,
     textDecorationLine: "underline",
+    fontSize: 16,
+  },
+  // Message component styles
+  messageContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+    marginTop: 10,
+  },
+  messageText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  closeButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
 

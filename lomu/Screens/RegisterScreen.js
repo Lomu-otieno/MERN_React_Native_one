@@ -4,14 +4,31 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 import { BACKEND_URI } from "@env";
 
 const REGISTER_URL = `${BACKEND_URI}/api/auth/register`;
+
+// Message Component
+const Message = ({ visible, type, message, onClose }) => {
+  if (!visible) return null;
+
+  const backgroundColor = type === "error" ? "#FF0050" : "#4CAF50";
+  const textColor = "#FFFFFF";
+
+  return (
+    <View style={[styles.messageContainer, { backgroundColor }]}>
+      <Text style={[styles.messageText, { color: textColor }]}>{message}</Text>
+      <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <Text style={[styles.closeButtonText, { color: textColor }]}>×</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const RegisterScreen = () => {
   const navigation = useNavigation();
@@ -20,34 +37,61 @@ const RegisterScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({
+    visible: false,
+    type: "",
+    text: "",
+  });
+
+  // Function to show message
+  const showMessage = (text, type = "error") => {
+    setMessage({ visible: true, type, text });
+  };
+
+  // Function to hide message
+  const hideMessage = () => {
+    setMessage({ visible: false, type: "", text: "" });
+  };
 
   const handleRegister = async () => {
-    if (!username || !email || !password) {
-      Alert.alert("Missing Fields", "All fields are required.");
+    // Trim inputs
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedEmail || !trimmedPassword) {
+      showMessage("All fields are required.", "error");
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert("Weak Password", "Password must be at least 6 characters.");
+    if (trimmedPassword.length < 6) {
+      showMessage("Password must be at least 6 characters.", "error");
       return;
     }
 
     setLoading(true);
     try {
       const response = await axios.post(REGISTER_URL, {
-        username,
-        email,
-        password,
+        username: trimmedUsername,
+        email: trimmedEmail,
+        password: trimmedPassword,
       });
-      navigation.replace("SetGender");
+
+      // Show success message before navigation
+      showMessage("Registration successful!", "success");
+
+      // Navigate after a brief delay to show the success message
+      setTimeout(() => {
+        navigation.replace("SetGender");
+      }, 1500);
     } catch (error) {
       console.error(
         "Registration error:",
         error.response?.data || error.message
       );
-      Alert.alert(
-        "Registration Failed",
-        error.response?.data?.message || "Something went wrong"
+      showMessage(
+        error.response?.data?.message || "Something went wrong",
+        "error"
       );
     } finally {
       setLoading(false);
@@ -57,6 +101,12 @@ const RegisterScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
+      <Message
+        visible={message.visible}
+        type={message.type}
+        message={message.text}
+        onClose={hideMessage}
+      />
 
       <TextInput
         placeholder="Username"
@@ -86,10 +136,16 @@ const RegisterScreen = () => {
         style={styles.input}
       />
 
-      <TouchableOpacity onPress={handleRegister} style={styles.button}>
-        <Text style={styles.buttonText}>
-          {loading ? "Creating account..." : "Register"}
-        </Text>
+      <TouchableOpacity
+        onPress={handleRegister}
+        style={styles.button}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Text style={styles.buttonText}>Register</Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate("Login")}>
@@ -102,7 +158,7 @@ const RegisterScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#121212",
     paddingHorizontal: 24,
     justifyContent: "center",
   },
@@ -111,26 +167,26 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     marginBottom: 32,
-    color: "#FF0050", // Romantic accent color
+    color: "#FF0050",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#333", // Darker border
+    borderColor: "#333",
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     fontSize: 16,
-    backgroundColor: "#1E1E1E", // Dark input background
-    color: "#FFFFFF", // White text
-    placeholderTextColor: "#666", // Placeholder color
+    backgroundColor: "#1E1E1E",
+    color: "#FFFFFF",
+    placeholderTextColor: "#666",
   },
   button: {
-    backgroundColor: "#FF0050", // Romantic pink/red
+    backgroundColor: "#FF0050",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 12,
-    shadowColor: "#FF0050", // Glow effect
+    shadowColor: "#FF0050",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -149,48 +205,32 @@ const styles = StyleSheet.create({
   },
   splashContainer: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#121212",
     justifyContent: "center",
     alignItems: "center",
   },
-  splashImage: {
-    width: 250,
-    height: 250,
-    tintColor: "#FF0050", // Optional: tint your splash image
-  },
-  // Instagram-like header styles
-  headerContainer: {
+  // Message component styles
+  messageContainer: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#333",
-    backgroundColor: "#121212",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+    marginTop: 10,
   },
-  logoContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  messageText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
   },
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+  closeButton: {
+    padding: 4,
+    marginLeft: 8,
   },
-  appName: {
-    color: "#FFFFFF",
-    fontSize: 20,
+  closeButtonText: {
+    fontSize: 18,
     fontWeight: "bold",
-  },
-  headerIcons: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  icon: {
-    marginLeft: 20,
-    color: "#FFFFFF", // White icons
   },
 });
 

@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Image,
   ActivityIndicator,
@@ -16,6 +15,23 @@ import { BACKEND_URI } from "@env";
 
 const LOGIN_URL = `${BACKEND_URI}/api/auth/login`;
 
+// Message Component
+const Message = ({ visible, type, message, onClose }) => {
+  if (!visible) return null;
+
+  const backgroundColor = type === "error" ? "#FF0050" : "#4CAF50";
+  const textColor = "#FFFFFF";
+
+  return (
+    <View style={[styles.messageContainer, { backgroundColor }]}>
+      <Text style={[styles.messageText, { color: textColor }]}>{message}</Text>
+      <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <Text style={[styles.closeButtonText, { color: textColor }]}>×</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const LoginScreen = () => {
   const navigation = useNavigation();
 
@@ -23,6 +39,21 @@ const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({
+    visible: false,
+    type: "",
+    text: "",
+  });
+
+  // Function to show message
+  const showMessage = (text, type = "error") => {
+    setMessage({ visible: true, type, text });
+  };
+
+  // Function to hide message
+  const hideMessage = () => {
+    setMessage({ visible: false, type: "", text: "" });
+  };
 
   // Function to remove spaces from username
   const handleUsernameChange = (text) => {
@@ -38,13 +69,13 @@ const LoginScreen = () => {
     const trimmedPassword = password.trim();
 
     if (!trimmedUsername || !trimmedEmail || !trimmedPassword) {
-      Alert.alert("Missing Fields", "Please enter all fields.");
+      showMessage("Please enter all fields.", "error");
       return;
     }
 
     // Additional validation for username (no spaces allowed)
     if (username.includes(" ")) {
-      Alert.alert("Invalid Username", "Username cannot contain spaces.");
+      showMessage("Username cannot contain spaces.", "error");
       return;
     }
 
@@ -63,10 +94,9 @@ const LoginScreen = () => {
 
       navigation.replace("Main");
     } catch (error) {
-      console.error("Login error:", error.response?.data || error.message);
-      Alert.alert(
-        "Login Failed",
-        error.response?.data?.message || "Something went wrong"
+      showMessage(
+        error.response?.data?.message || "Something went wrong",
+        "error"
       );
     } finally {
       setLoading(false);
@@ -89,13 +119,19 @@ const LoginScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login</Text>
+      <Message
+        visible={message.visible}
+        type={message.type}
+        message={message.text}
+        onClose={hideMessage}
+      />
 
       <TextInput
         placeholder="Username"
         placeholderTextColor="#fff"
         autoCapitalize="none"
         value={username}
-        onChangeText={handleUsernameChange} // Use the custom handler
+        onChangeText={handleUsernameChange}
         style={styles.input}
         autoCorrect={false}
       />
@@ -135,10 +171,11 @@ const LoginScreen = () => {
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#121212",
     paddingHorizontal: 24,
     justifyContent: "center",
   },
@@ -147,26 +184,26 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     marginBottom: 32,
-    color: "#FF0050", // Romantic accent color
+    color: "#FF0050",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#333", // Darker border
+    borderColor: "#333",
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     fontSize: 16,
-    backgroundColor: "#1E1E1E", // Dark input background
-    color: "#FFFFFF", // White text
-    placeholderTextColor: "#fff", // Placeholder color
+    backgroundColor: "#1E1E1E",
+    color: "#FFFFFF",
+    placeholderTextColor: "#fff",
   },
   button: {
-    backgroundColor: "#FF0050", // Romantic pink/red
+    backgroundColor: "#FF0050",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 12,
-    shadowColor: "#FF0050", // Glow effect
+    shadowColor: "#FF0050",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -185,44 +222,32 @@ const styles = StyleSheet.create({
   },
   splashContainer: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#121212",
     justifyContent: "center",
     alignItems: "center",
   },
-
-  // Instagram-like header styles
-  headerContainer: {
+  // Message component styles
+  messageContainer: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#333", // Darker border
-    backgroundColor: "#121212", // Dark background
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+    marginTop: 10,
   },
-  logoContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  messageText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
   },
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+  closeButton: {
+    padding: 4,
+    marginLeft: 8,
   },
-  appName: {
-    color: "#FFFFFF",
-    fontSize: 20,
+  closeButtonText: {
+    fontSize: 18,
     fontWeight: "bold",
-  },
-  headerIcons: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  icon: {
-    marginLeft: 20,
-    color: "#FFFFFF", // White icons
   },
 });
 

@@ -6,7 +6,6 @@ import {
   FlatList,
   Image,
   ActivityIndicator,
-  Alert,
   SafeAreaView,
   TouchableOpacity,
   RefreshControl,
@@ -22,11 +21,50 @@ import { BACKEND_URI } from "@env";
 const SERVER_URL = `${BACKEND_URI}`;
 const DEFAULT_IMAGE = "";
 
+// Message Component
+const Message = ({ visible, type, message, onClose }) => {
+  if (!visible) return null;
+
+  const backgroundColor = type === "error" ? "#FF3B30" : "#4CAF50";
+  const textColor = "#FFFFFF";
+
+  return (
+    <View style={[styles.messageContainer, { backgroundColor }]}>
+      <Text style={[styles.messageText, { color: textColor }]}>{message}</Text>
+      <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <Text style={[styles.closeButtonText, { color: textColor }]}>×</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const MatchesScreen = () => {
   const navigation = useNavigation();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [message, setMessage] = useState({
+    visible: false,
+    type: "",
+    text: "",
+  });
+
+  // Function to show message
+  const showMessage = (text, type = "error") => {
+    setMessage({ visible: true, type, text });
+
+    // Auto-hide error messages after 5 seconds
+    if (type === "error") {
+      setTimeout(() => {
+        hideMessage();
+      }, 5000);
+    }
+  };
+
+  // Function to hide message
+  const hideMessage = () => {
+    setMessage({ visible: false, type: "", text: "" });
+  };
 
   const fetchMatches = async () => {
     try {
@@ -36,7 +74,11 @@ const MatchesScreen = () => {
       });
       setMatches(res.data || []);
     } catch (error) {
-      Alert.alert("Error", "Failed to load matches.");
+      console.error(
+        "Fetch matches error:",
+        error.response?.data || error.message
+      );
+      showMessage("Failed to load matches. Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -63,7 +105,14 @@ const MatchesScreen = () => {
   if (matches.length === 0) {
     return (
       <View style={[styles.container, styles.centeredEmpty]}>
-        <Ionicons name="heart-dislike" size={64} color="#333" />
+        <Message
+          visible={message.visible}
+          type={message.type}
+          message={message.text}
+          onClose={hideMessage}
+        />
+
+        <Ionicons name="heart-dislike" size={64} color="#666" />
         <Text style={styles.emptyTitle}>No matches yet</Text>
         <Text style={styles.emptySubtitle}>
           Keep swiping to find your perfect match!
@@ -78,6 +127,13 @@ const MatchesScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <Message
+        visible={message.visible}
+        type={message.type}
+        message={message.text}
+        onClose={hideMessage}
+      />
+
       <View style={styles.header}></View>
 
       <FlatList
@@ -112,6 +168,15 @@ const MatchesScreen = () => {
           </TouchableOpacity>
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={
+          <View style={styles.centeredEmpty}>
+            <Ionicons name="heart-dislike" size={64} color="#666" />
+            <Text style={styles.emptyTitle}>No matches yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Keep swiping to find your perfect match!
+            </Text>
+          </View>
+        }
       />
       <StatusBar
         barStyle="light-content"
@@ -145,6 +210,7 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: 12,
     paddingTop: 8,
+    flexGrow: 1,
   },
   matchCard: {
     flexDirection: "row",
@@ -179,12 +245,14 @@ const styles = StyleSheet.create({
   centered: {
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#000",
   },
   centeredEmpty: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 40,
+    backgroundColor: "#000",
   },
   emptyTitle: {
     fontSize: 20,
@@ -218,6 +286,30 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#333",
     marginLeft: 72,
+  },
+  // Message component styles
+  messageContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    zIndex: 1000,
+  },
+  messageText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  closeButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
 

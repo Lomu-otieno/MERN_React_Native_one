@@ -1,6 +1,6 @@
 {
   "name": "lomu",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -12,7 +12,7 @@
     "@babel/core": "^7.26.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@expo/metro-runtime": "^5.0.4",
+    "@expo/metro-runtime": "~5.0.5",
     "@mui/material": "^7.3.1",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-picker/picker": "^2.11.1",
@@ -22,7 +22,7 @@
     "@types/react": "^19.0.14",
     "axios": "^1.11.0",
     "client": "^0.0.1",
-    "expo": "^53.0.22",
+    "expo": "~53.0.23",
     "expo-constants": "^17.1.7",
     "expo-dev": "^0.0.1",
     "expo-image-picker": "^16.1.4",

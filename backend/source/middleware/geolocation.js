@@ -51,19 +51,21 @@ export async function getLocationName(latitude, longitude) {
       console.error(
         `Nominatim API error: ${response.status} ${response.statusText}`
       );
-      return "Unknown location";
+      return "Unknown Location"; // Return generic name instead of coordinates
     }
 
     const data = await response.json();
 
-    // Extract location name with fallbacks
+    // Extract location name with better fallbacks
     const locationName =
       data.address?.city ||
       data.address?.town ||
       data.address?.village ||
       data.address?.suburb ||
-      data.display_name ||
-      `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+      data.address?.county ||
+      data.address?.state ||
+      data.display_name?.split(",")[0] || // Get first part of display name
+      "Unknown Location"; // Final fallback
 
     // Cache the result
     setCachedLocation(latitude, longitude, locationName);
@@ -75,6 +77,6 @@ export async function getLocationName(latitude, longitude) {
     } else {
       console.error("Geocoding failed:", error.message);
     }
-    return `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+    return "Unknown Location"; // Return generic name instead of coordinates
   }
 }

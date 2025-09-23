@@ -405,12 +405,10 @@ user_router.put("/location", protect, loginLimiter, async (req, res) => {
       locationName = await getLocationName(latitude, longitude);
     } catch (geocodeError) {
       console.warn(
-        "⚠️ Geocoding failed, using coordinates:",
+        "⚠️ Geocoding failed, using fallback:",
         geocodeError.message
       );
-      locationName = `Location (${latitude.toFixed(4)}, ${longitude.toFixed(
-        4
-      )})`;
+      locationName = "Maseno";
     }
 
     await User.findByIdAndUpdate(req.user.id, {
@@ -466,7 +464,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
       dateOfBirth: user.dateOfBirth,
       age,
       interests: user.interests,
-      location: user.location, // coordinates
+      location: user.location,
       locationName: user.locationName,
       profileImage: user.profileImage,
       likes: user.likes,
