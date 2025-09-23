@@ -4,29 +4,40 @@ dotenv.config();
 
 const sendEmail = async (to, subject, html) => {
   try {
-    console.log("=== EMAIL DEBUG INFO ===");
-    console.log("To:", to);
-    console.log("Subject:", subject);
-    console.log("From email:", process.env.EMAIL_USER);
-    console.log("PASSWORD_URI:", process.env.PASSWORD_URI);
+    console.log(`📧 Attempting to send email to: ${to}`);
 
-    // Extract reset token from HTML for debugging
-    const tokenMatch = html.match(/token=([a-f0-9]+)/);
-    if (tokenMatch) {
-      console.log("🔐 Reset token generated:", tokenMatch[1]);
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error("Email credentials not configured");
     }
 
-    // For now, just log the email instead of sending
-    console.log("📧 Email would be sent with content:");
-    console.log(html);
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS, // Use app password, not regular password
+      },
+    });
 
-    // Simulate success for testing
-    console.log("✅ Email simulation successful (not actually sent)");
+    const mailOptions = {
+      from: `"Lomu Dating" <${process.env.EMAIL_USER}>`,
+      to: to,
+      subject: subject,
+      html: html,
+    };
 
-    return { messageId: "simulated-" + Date.now() };
+    const result = await transporter.sendMail(mailOptions);
+    console.log("✅ Email sent successfully via Gmail");
+    return result;
   } catch (error) {
-    console.error("❌ Email simulation error:", error);
-    throw new Error(`Email service unavailable: ${error.message}`);
+    console.error("❌ Gmail error:", error);
+
+    // Fallback: log the email details
+    console.log("📝 Email details for manual sending:");
+    console.log("To:", to);
+    console.log("Subject:", subject);
+    console.log("HTML:", html);
+
+    throw new Error("Email service temporary unavailable");
   }
 };
 
