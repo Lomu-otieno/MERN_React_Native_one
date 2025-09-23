@@ -6,6 +6,7 @@ import { cloudinary } from "../lib/cloudinary.js";
 import multer from "multer";
 import { getLocationName } from "../middleware/geolocation.js";
 import { loginLimiter } from "../middleware/rateLimiter.js";
+import mongoose from "mongoose";
 
 const upload = multer({ storage });
 const user_router = express.Router();
@@ -490,87 +491,102 @@ user_router.get("/view-profile", protect, async (req, res) => {
 });
 user_router.get("/explore", protect, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user._id);
+    const currentUser = await User.findById(req.user.id);
 
-    if (!currentUser || !currentUser.location?.coordinates) {
+    if (!currentUser || !currentUser.location) {
       return res.status(400).json({ message: "User location not set" });
     }
 
-    const [userLng, userLat] = currentUser.location.coordinates;
+    const maxDistance = 50000; // 50km in meters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
 
-    const excludedUserIds = [
-      ...(currentUser.likes || []),
-      ...(currentUser.passes || []),
-      currentUser._id,
-    ];
-
-    const genderFilter =
-      req.query.gender ||
-      (currentUser.gender === "male"
-        ? "female"
-        : currentUser.gender === "female"
-        ? "male"
-        : undefined);
-
-    const geoQuery = [
-      {
-        $geoNear: {
-          near: {
+    // Build query excluding current user and already liked/passed users
+    const query = {
+      _id: {
+        $ne: new mongoose.Types.ObjectId(req.user.id),
+      },
+      location: {
+        $near: {
+          $geometry: {
             type: "Point",
-            coordinates: [userLng, userLat],
+            coordinates: currentUser.location.coordinates,
           },
-          distanceField: "distance",
-          spherical: true,
-          maxDistance: 50000,
-          query: {
-            _id: { $nin: excludedUserIds },
-            ...(genderFilter && { gender: genderFilter }),
-          },
+          $maxDistance: maxDistance,
         },
       },
-      {
-        $limit: 20,
-      },
-    ];
-
-    const users = await User.aggregate(geoQuery);
-
-    const calculateAge = (birthDate) => {
-      if (!birthDate) return null;
-      const today = new Date();
-      const birth = new Date(birthDate);
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      if (
-        monthDiff < 0 ||
-        (monthDiff === 0 && today.getDate() < birth.getDate())
-      ) {
-        age--;
-      }
-      return age;
     };
 
-    const formattedUsers = users.map((user) => ({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      bio: user.bio,
-      gender: user.gender,
-      dateOfBirth: user.dateOfBirth,
-      age: calculateAge(user.dateOfBirth),
-      interests: user.interests,
-      location: user.location,
-      profileImage: user.profileImage,
-      likes: user.likes,
-      likesCount: user.likes.length,
-      photos: user.photos,
-      distance: (user.distance / 1000).toFixed(1), // km
-    }));
+    // Add exclusion for liked/passed users if they exist
+    if (currentUser.likedUsers && currentUser.likedUsers.length > 0) {
+      query._id.$nin = currentUser.likedUsers.map(
+        (id) => new mongoose.Types.ObjectId(id)
+      );
+    }
 
-    res.status(200).json(formattedUsers);
-  } catch (err) {
-    console.error("Explore error:", err);
-    res.status(500).json({ message: "Server error" });
+    if (currentUser.passedUsers && currentUser.passedUsers.length > 0) {
+      if (!query._id.$nin) query._id.$nin = [];
+      query._id.$nin.push(
+        ...currentUser.passedUsers.map((id) => new mongoose.Types.ObjectId(id))
+      );
+    }
+
+    const users = await User.find(query)
+      .select("-password -email -likedUsers -passedUsers")
+      .skip(skip)
+      .limit(limit);
+
+    // Safe processing of users data
+    const exploreUsers = users.map((user) => {
+      const calculateAge = (birthDate) => {
+        if (!birthDate) return null;
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+
+        if (
+          monthDiff < 0 ||
+          (monthDiff === 0 && today.getDate() < birth.getDate())
+        ) {
+          age--;
+        }
+        return age;
+      };
+
+      return {
+        _id: user._id,
+        username: user.username || "Unknown",
+        bio: user.bio || "",
+        age: calculateAge(user.dateOfBirth),
+        interests: user.interests || [],
+        location: user.locationName || "Unknown Location",
+        profileImage: user.profileImage || "",
+        photos: user.photos || [],
+        distance: user.distance || 0,
+      };
+    });
+
+    const totalUsers = await User.countDocuments(query);
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    res.status(200).json({
+      users: exploreUsers,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalUsers,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error("Explore error:", error);
+    res.status(500).json({
+      message: "Error fetching users",
+      error: error.message,
+    });
   }
 });
 user_router.put("/push-token", protect, async (req, res) => {
