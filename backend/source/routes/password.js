@@ -10,11 +10,6 @@ password_router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
 
   console.log("🔐 Forgot password request for:", email);
-  console.log(
-    "📧 Email user from env:",
-    process.env.EMAIL_USER ? "Set" : "Not set"
-  );
-  console.log("🌐 PASSWORD_URI:", process.env.PASSWORD_URI);
 
   try {
     if (!email) {
@@ -25,6 +20,7 @@ password_router.post("/forgot-password", async (req, res) => {
 
     if (!user) {
       console.log("❌ Email not found in database");
+      // For security, don't reveal if email exists or not
       return res.status(200).json({
         message: "If that email exists, a reset link has been sent",
       });
@@ -40,7 +36,7 @@ password_router.post("/forgot-password", async (req, res) => {
       .digest("hex");
 
     user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
     const resetLink = `${process.env.PASSWORD_URI}/reset-password?token=${resetToken}`;
@@ -51,25 +47,51 @@ password_router.post("/forgot-password", async (req, res) => {
       <h2>Password Reset Request</h2>
       <p>Hello ${user.username},</p>
       <p>Click the link below to reset your password:</p>
-      <a href="${resetLink}" target="_blank">Reset Password</a>
-      <p>This link will expire in 10 minutes.</p>
+      <a href="${resetLink}" target="_blank" style="
+        display: inline-block; 
+        padding: 12px 24px; 
+        background: #FF0050; 
+        color: white; 
+        text-decoration: none; 
+        border-radius: 6px;
+        font-weight: bold;
+      ">Reset Password</a>
+      <p><strong>This link will expire in 10 minutes.</strong></p>
+      <p>If you didn't request this, please ignore this email.</p>
+      <hr>
+      <p style="color: #666; font-size: 12px;">
+        Or copy this link: ${resetLink}
+      </p>
     `;
 
-    console.log("📤 Attempting to send email...");
-
-    // Send email
-    await sendEmail(user.email, "Password Reset Request", message);
-
-    console.log("✅ Email sent successfully to:", user.email);
+    try {
+      console.log("📤 Attempting to send email...");
+      await sendEmail(user.email, "Password Reset Request", message);
+      console.log("✅ Email sent successfully to:", user.email);
+    } catch (emailError) {
+      console.error(
+        "❌ Email sending failed, but token was saved:",
+        emailError.message
+      );
+      // Continue - the token is saved, admin can check logs
+    }
 
     res.status(200).json({
       message: "If that email exists, a reset link has been sent",
+      // Include debug info in development
+      ...(process.env.NODE_ENV === "development" && {
+        debug: {
+          tokenSaved: true,
+          emailAttempted: true,
+          resetLink: resetLink,
+        },
+      }),
     });
   } catch (error) {
     console.error("❌ Forgot password error:", error);
     res.status(500).json({
       message: "Server error occurred",
-      error: error.message, // Always show error in development
+      ...(process.env.NODE_ENV === "development" && { error: error.message }),
     });
   }
 });
