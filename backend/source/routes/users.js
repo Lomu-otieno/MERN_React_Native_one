@@ -569,7 +569,7 @@ user_router.put("/push-token", protect, async (req, res) => {
     return res.status(400).json({ message: "Push token required" });
 
   try {
-    await User.findByIdAndUpdate(req.user.id, { pushToken });
+    await User.findByIdAndUpdate(req.user._id, { pushToken });
     res.status(200).json({ message: "Push token saved" });
   } catch (err) {
     console.error("Push token error:", err);
