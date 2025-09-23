@@ -6,7 +6,6 @@ import { cloudinary } from "../lib/cloudinary.js";
 import multer from "multer";
 import { getLocationName } from "../middleware/geolocation.js";
 import { loginLimiter } from "../middleware/rateLimiter.js";
-import mongoose from "mongoose";
 
 const upload = multer({ storage });
 const user_router = express.Router();
@@ -351,14 +350,7 @@ user_router.get("/matches", protect, async (req, res) => {
 });
 user_router.get("/match/:id", protect, async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Validate that ID is a valid MongoDB ObjectId
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-
-    const user = await User.findById(id).select("-password"); // Changed from req.params.id to id
+    const user = await User.findById(req.params.id).select("-password");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -408,8 +400,18 @@ user_router.put("/location", protect, loginLimiter, async (req, res) => {
   }
 
   try {
-    // Get location name with improved error handling
-    const locationName = await getLocationName(latitude, longitude);
+    let locationName;
+    try {
+      locationName = await getLocationName(latitude, longitude);
+    } catch (geocodeError) {
+      console.warn(
+        "⚠️ Geocoding failed, using coordinates:",
+        geocodeError.message
+      );
+      locationName = `Location (${latitude.toFixed(4)}, ${longitude.toFixed(
+        4
+      )})`;
+    }
 
     await User.findByIdAndUpdate(req.user.id, {
       location: {
@@ -422,25 +424,11 @@ user_router.put("/location", protect, loginLimiter, async (req, res) => {
     res.status(200).json({
       message: "Location updated successfully",
       locationName,
-      coordinates: { latitude, longitude },
     });
   } catch (err) {
-    console.error("Location update error:", err);
-
-    // Even if geocoding fails, still update coordinates
-    await User.findByIdAndUpdate(req.user.id, {
-      location: {
-        type: "Point",
-        coordinates: [longitude, latitude],
-      },
-      locationName: "Location Not Available",
-    });
-
-    res.status(200).json({
-      message: "Location coordinates updated (geocoding service unavailable)",
-      locationName: "Location Not Available",
-      coordinates: { latitude, longitude },
-    });
+    res
+      .status(500)
+      .json({ message: "Failed to update location", error: err.message });
   }
 });
 
@@ -478,7 +466,7 @@ user_router.get("/view-profile", protect, async (req, res) => {
       dateOfBirth: user.dateOfBirth,
       age,
       interests: user.interests,
-      location: user.location,
+      location: user.location, // coordinates
       locationName: user.locationName,
       profileImage: user.profileImage,
       likes: user.likes,
@@ -492,184 +480,87 @@ user_router.get("/view-profile", protect, async (req, res) => {
 });
 user_router.get("/explore", protect, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user.id);
+    const currentUser = await User.findById(req.user._id);
 
-    if (!currentUser || !currentUser.location) {
+    if (!currentUser || !currentUser.location?.coordinates) {
       return res.status(400).json({ message: "User location not set" });
     }
 
-    const maxDistance = 50000; // 50km in meters
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const [userLng, userLat] = currentUser.location.coordinates;
 
-    // Build aggregation pipeline
-    const pipeline = [
+    const excludedUserIds = [
+      ...(currentUser.likes || []),
+      ...(currentUser.passes || []),
+      currentUser._id,
+    ];
+
+    const genderFilter =
+      req.query.gender ||
+      (currentUser.gender === "male"
+        ? "female"
+        : currentUser.gender === "female"
+        ? "male"
+        : undefined);
+
+    const geoQuery = [
       {
         $geoNear: {
           near: {
             type: "Point",
-            coordinates: currentUser.location.coordinates,
+            coordinates: [userLng, userLat],
           },
           distanceField: "distance",
-          maxDistance: maxDistance,
           spherical: true,
+          maxDistance: 50000,
           query: {
-            _id: { $ne: new mongoose.Types.ObjectId(req.user.id) },
+            _id: { $nin: excludedUserIds },
+            ...(genderFilter && { gender: genderFilter }),
           },
         },
       },
-      // Add exclusion for liked/passed users
       {
-        $match: {
-          $and: [
-            currentUser.likedUsers?.length > 0
-              ? {
-                  _id: {
-                    $nin: currentUser.likedUsers.map(
-                      (id) => new mongoose.Types.ObjectId(id)
-                    ),
-                  },
-                }
-              : {},
-            currentUser.passedUsers?.length > 0
-              ? {
-                  _id: {
-                    $nin: currentUser.passedUsers.map(
-                      (id) => new mongoose.Types.ObjectId(id)
-                    ),
-                  },
-                }
-              : {},
-          ].filter((condition) => Object.keys(condition).length > 0), // Remove empty conditions
-        },
-      },
-      // Pagination
-      { $skip: skip },
-      { $limit: limit },
-      // Project fields
-      {
-        $project: {
-          password: 0,
-          email: 0,
-          likedUsers: 0,
-          passedUsers: 0,
-        },
+        $limit: 20,
       },
     ];
 
-    // Remove empty match conditions
-    pipeline[1].$match.$and = pipeline[1].$match.$and.filter(
-      (condition) => Object.keys(condition).length > 0
-    );
-    if (pipeline[1].$match.$and.length === 0) {
-      pipeline.splice(1, 1); // Remove the $match stage if no conditions
-    }
+    const users = await User.aggregate(geoQuery);
 
-    const users = await User.aggregate(pipeline);
+    const calculateAge = (birthDate) => {
+      if (!birthDate) return null;
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birth.getDate())
+      ) {
+        age--;
+      }
+      return age;
+    };
 
-    // Safe processing of users data
-    const exploreUsers = users.map((user) => {
-      const calculateAge = (birthDate) => {
-        if (!birthDate) return null;
-        const today = new Date();
-        const birth = new Date(birthDate);
-        let age = today.getFullYear() - birth.getFullYear();
-        const monthDiff = today.getMonth() - birth.getMonth();
+    const formattedUsers = users.map((user) => ({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      bio: user.bio,
+      gender: user.gender,
+      dateOfBirth: user.dateOfBirth,
+      age: calculateAge(user.dateOfBirth),
+      interests: user.interests,
+      location: user.location,
+      profileImage: user.profileImage,
+      likes: user.likes,
+      likesCount: user.likes.length,
+      photos: user.photos,
+      distance: (user.distance / 1000).toFixed(1), // km
+    }));
 
-        if (
-          monthDiff < 0 ||
-          (monthDiff === 0 && today.getDate() < birth.getDate())
-        ) {
-          age--;
-        }
-        return age;
-      };
-
-      return {
-        _id: user._id,
-        username: user.username || "Unknown",
-        bio: user.bio || "",
-        age: calculateAge(user.dateOfBirth),
-        interests: user.interests || [],
-        location: user.locationName || "Unknown Location",
-        profileImage: user.profileImage || "",
-        photos: user.photos || [],
-        distance: user.distance || 0,
-      };
-    });
-
-    // Get total count separately for pagination
-    const countPipeline = [
-      {
-        $geoNear: {
-          near: {
-            type: "Point",
-            coordinates: currentUser.location.coordinates,
-          },
-          distanceField: "distance",
-          maxDistance: maxDistance,
-          spherical: true,
-          query: {
-            _id: { $ne: new mongoose.Types.ObjectId(req.user.id) },
-          },
-        },
-      },
-    ];
-
-    // Add exclusion conditions to count pipeline
-    if (
-      currentUser.likedUsers?.length > 0 ||
-      currentUser.passedUsers?.length > 0
-    ) {
-      countPipeline.push({
-        $match: {
-          $and: [
-            currentUser.likedUsers?.length > 0
-              ? {
-                  _id: {
-                    $nin: currentUser.likedUsers.map(
-                      (id) => new mongoose.Types.ObjectId(id)
-                    ),
-                  },
-                }
-              : {},
-            currentUser.passedUsers?.length > 0
-              ? {
-                  _id: {
-                    $nin: currentUser.passedUsers.map(
-                      (id) => new mongoose.Types.ObjectId(id)
-                    ),
-                  },
-                }
-              : {},
-          ].filter((condition) => Object.keys(condition).length > 0),
-        },
-      });
-    }
-
-    countPipeline.push({ $count: "total" });
-
-    const countResult = await User.aggregate(countPipeline);
-    const totalUsers = countResult.length > 0 ? countResult[0].total : 0;
-    const totalPages = Math.ceil(totalUsers / limit);
-
-    res.status(200).json({
-      users: exploreUsers,
-      pagination: {
-        currentPage: page,
-        totalPages,
-        totalUsers,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
-    });
-  } catch (error) {
-    console.error("Explore error:", error);
-    res.status(500).json({
-      message: "Error fetching users",
-      error: error.message,
-    });
+    res.status(200).json(formattedUsers);
+  } catch (err) {
+    console.error("Explore error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 user_router.put("/push-token", protect, async (req, res) => {
@@ -684,35 +575,5 @@ user_router.put("/push-token", protect, async (req, res) => {
     console.error("Push token error:", err);
     res.status(500).json({ message: "Failed to save token" });
   }
-});
-// Add this test route to help debug
-user_router.get("/test-geocoding", async (req, res) => {
-  const testCoords = [
-    { lat: -0.0012931, lon: 34.6183878 }, // Your problem coordinates
-    { lat: 40.7128, lon: -74.006 }, // New York City
-    { lat: 51.5074, lon: -0.1278 }, // London
-  ];
-
-  const results = [];
-
-  for (const coord of testCoords) {
-    try {
-      console.log(`\n🧪 Testing coordinates: (${coord.lat}, ${coord.lon})`);
-      const location = await getLocationName(coord.lat, coord.lon);
-      results.push({
-        coordinates: coord,
-        result: location,
-        status: "success",
-      });
-    } catch (error) {
-      results.push({
-        coordinates: coord,
-        result: error.message,
-        status: "error",
-      });
-    }
-  }
-
-  res.json({ geocodingTest: results });
 });
 export default user_router;
