@@ -60,7 +60,7 @@ password_router.post("/forgot-password", async (req, res) => {
     }
 
     res.status(200).json({
-      message: "If your email exists, a reset link has been sent",
+      message: "reset link has been sent",
       // Include debug info
       debug: process.env.NODE_ENV === "development" ? { resetLink } : undefined,
     });
