@@ -503,40 +503,70 @@ user_router.get("/explore", protect, async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    // Build query excluding current user and already liked/passed users
-    const query = {
-      _id: {
-        $ne: new mongoose.Types.ObjectId(req.user.id),
-      },
-      location: {
-        $near: {
-          $geometry: {
+    // Build aggregation pipeline
+    const pipeline = [
+      {
+        $geoNear: {
+          near: {
             type: "Point",
             coordinates: currentUser.location.coordinates,
           },
-          $maxDistance: maxDistance,
+          distanceField: "distance",
+          maxDistance: maxDistance,
+          spherical: true,
+          query: {
+            _id: { $ne: new mongoose.Types.ObjectId(req.user.id) },
+          },
         },
       },
-    };
+      // Add exclusion for liked/passed users
+      {
+        $match: {
+          $and: [
+            currentUser.likedUsers?.length > 0
+              ? {
+                  _id: {
+                    $nin: currentUser.likedUsers.map(
+                      (id) => new mongoose.Types.ObjectId(id)
+                    ),
+                  },
+                }
+              : {},
+            currentUser.passedUsers?.length > 0
+              ? {
+                  _id: {
+                    $nin: currentUser.passedUsers.map(
+                      (id) => new mongoose.Types.ObjectId(id)
+                    ),
+                  },
+                }
+              : {},
+          ].filter((condition) => Object.keys(condition).length > 0), // Remove empty conditions
+        },
+      },
+      // Pagination
+      { $skip: skip },
+      { $limit: limit },
+      // Project fields
+      {
+        $project: {
+          password: 0,
+          email: 0,
+          likedUsers: 0,
+          passedUsers: 0,
+        },
+      },
+    ];
 
-    // Add exclusion for liked/passed users if they exist
-    if (currentUser.likedUsers && currentUser.likedUsers.length > 0) {
-      query._id.$nin = currentUser.likedUsers.map(
-        (id) => new mongoose.Types.ObjectId(id)
-      );
+    // Remove empty match conditions
+    pipeline[1].$match.$and = pipeline[1].$match.$and.filter(
+      (condition) => Object.keys(condition).length > 0
+    );
+    if (pipeline[1].$match.$and.length === 0) {
+      pipeline.splice(1, 1); // Remove the $match stage if no conditions
     }
 
-    if (currentUser.passedUsers && currentUser.passedUsers.length > 0) {
-      if (!query._id.$nin) query._id.$nin = [];
-      query._id.$nin.push(
-        ...currentUser.passedUsers.map((id) => new mongoose.Types.ObjectId(id))
-      );
-    }
-
-    const users = await User.find(query)
-      .select("-password -email -likedUsers -passedUsers")
-      .skip(skip)
-      .limit(limit);
+    const users = await User.aggregate(pipeline);
 
     // Safe processing of users data
     const exploreUsers = users.map((user) => {
@@ -569,7 +599,59 @@ user_router.get("/explore", protect, async (req, res) => {
       };
     });
 
-    const totalUsers = await User.countDocuments(query);
+    // Get total count separately for pagination
+    const countPipeline = [
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: currentUser.location.coordinates,
+          },
+          distanceField: "distance",
+          maxDistance: maxDistance,
+          spherical: true,
+          query: {
+            _id: { $ne: new mongoose.Types.ObjectId(req.user.id) },
+          },
+        },
+      },
+    ];
+
+    // Add exclusion conditions to count pipeline
+    if (
+      currentUser.likedUsers?.length > 0 ||
+      currentUser.passedUsers?.length > 0
+    ) {
+      countPipeline.push({
+        $match: {
+          $and: [
+            currentUser.likedUsers?.length > 0
+              ? {
+                  _id: {
+                    $nin: currentUser.likedUsers.map(
+                      (id) => new mongoose.Types.ObjectId(id)
+                    ),
+                  },
+                }
+              : {},
+            currentUser.passedUsers?.length > 0
+              ? {
+                  _id: {
+                    $nin: currentUser.passedUsers.map(
+                      (id) => new mongoose.Types.ObjectId(id)
+                    ),
+                  },
+                }
+              : {},
+          ].filter((condition) => Object.keys(condition).length > 0),
+        },
+      });
+    }
+
+    countPipeline.push({ $count: "total" });
+
+    const countResult = await User.aggregate(countPipeline);
+    const totalUsers = countResult.length > 0 ? countResult[0].total : 0;
     const totalPages = Math.ceil(totalUsers / limit);
 
     res.status(200).json({
