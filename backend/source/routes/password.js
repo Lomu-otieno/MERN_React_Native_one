@@ -39,7 +39,7 @@ password_router.post("/forgot-password", async (req, res) => {
     const resetLink = `${process.env.PASSWORD_URI}/index.html?token=${resetToken}`;
     console.log("🔗 Reset link generated:", resetLink);
 
-    // Try to send email with better HTML content
+    // Send email
     try {
       const message = `
         <div style="font-family: Arial, sans-serif; padding: 20px;">
@@ -55,8 +55,10 @@ password_router.post("/forgot-password", async (req, res) => {
         </div>
       `;
       await sendEmail(user.email, "Password Reset Request", message);
+      console.log("✅ Email sent successfully");
     } catch (emailError) {
       console.log("⚠️ Email not sent, but token saved. Reset link:", resetLink);
+      // The reset link is still logged in the sendEmail function for manual use
     }
 
     res.status(200).json({
@@ -69,7 +71,6 @@ password_router.post("/forgot-password", async (req, res) => {
     res.status(500).json({ message: "Server error occurred" });
   }
 });
-
 password_router.post("/reset-password/:token", async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
