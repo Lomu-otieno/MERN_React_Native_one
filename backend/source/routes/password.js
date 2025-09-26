@@ -35,7 +35,7 @@ password_router.post("/forgot-password", async (req, res) => {
       .digest("hex");
 
     user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+    user.resetPasswordExpires = Date.now() + 720 * 60 * 1000;
     await user.save();
 
     const resetLink = `${process.env.PASSWORD_URI}/index.html?token=${resetToken}`;
