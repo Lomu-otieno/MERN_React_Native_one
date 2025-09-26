@@ -20,7 +20,9 @@ password_router.post("/forgot-password", async (req, res) => {
 
     if (!user) {
       console.log("❌ Email not found in database");
-      return res.status(200).json({ message: "A reset link has been sent" });
+      return res
+        .status(200)
+        .json({ message: "A reset link has been sent within 24hrs" });
     }
 
     console.log("✅ User found:", user.email);
