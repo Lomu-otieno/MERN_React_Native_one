@@ -41,7 +41,10 @@ export default {
       favicon: "./assets/splash_lomu.png",
     },
     updates: {
-      fallbackToCacheTimeout: 0,
+      url: "https://u.expo.dev/bfbc21bf-0cad-49c8-97b4-0673b34a4f23",
+    },
+    runtimeVersion: {
+      policy: "appVersion",
     },
     assetBundlePatterns: ["**/*"],
     extra: {

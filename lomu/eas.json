@@ -35,6 +35,16 @@
         "BACKEND_URI": "https://lomu-dating-backend.onrender.com",
         "ADMIN_ID": "507f1f77bcf86cd799439011"
       }
+    },
+    "release": {
+      "distribution": "internal",
+      "android": {
+         "buildType": "apk"
+      },
+       "env": {
+         "BACKEND_URI": "https://lomu-dating-backend.onrender.com",
+          "ADMIN_ID": "507f1f77bcf86cd799439011"
+        }
     }
   },
   "submit": {

@@ -38,11 +38,11 @@ settings_router.post(
       console.error("Upload error:", err);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
-settings_router.put("/update-details", protect, async (req, res) => {
-  const { bio, gender, dateOfBirth, interests, photos, location } = req.body;
+settings_router.post("/update-details", protect, async (req, res) => {
+  const { bio, gender, dateOfBirth, interests, location } = req.body;
 
   try {
     const user = await User.findById(req.user._id);
@@ -51,17 +51,29 @@ settings_router.put("/update-details", protect, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Update fields only if they are provided
-    if (bio !== undefined) user.bio = bio;
-    if (gender !== undefined) user.gender = gender;
-    if (dateOfBirth !== undefined) user.dateOfBirth = new Date(dateOfBirth);
-    if (interests !== undefined) user.interests = interests;
-    if (photos !== undefined) user.photos = photos;
-    if (location !== undefined) user.location = location;
+    // Update fields only if they are provided and valid
+    if (bio !== undefined && bio !== null) user.bio = bio;
+    if (gender !== undefined && gender !== null) user.gender = gender;
+
+    if (dateOfBirth !== undefined && dateOfBirth !== null) {
+      const dob = new Date(dateOfBirth);
+      if (!isNaN(dob.getTime())) {
+        user.dateOfBirth = dob;
+      }
+    }
+
+    if (interests !== undefined && interests !== null) {
+      // Ensure interests is an array
+      user.interests = Array.isArray(interests) ? interests : [];
+    }
+
+    if (location !== undefined && location !== null) user.location = location;
 
     await user.save();
 
-    const { password, ...userData } = user.toObject(); // Remove password from response
+    // Remove sensitive data
+    const userData = user.toObject();
+    delete userData.password;
 
     res.status(200).json({
       message: "Profile updated successfully",
@@ -90,7 +102,7 @@ settings_router.post(
       console.error("Upload error:", err);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 settings_router.delete("/delete-account", protect, async (req, res) => {
@@ -109,7 +121,7 @@ settings_router.delete("/delete-account", protect, async (req, res) => {
           passes: userId,
           matches: userId,
         },
-      }
+      },
     );
 
     res.status(200).json({ message: "Account deleted successfully" });
