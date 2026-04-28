@@ -81,6 +81,7 @@ const LoginScreen = () => {
 
     setLoading(true);
     try {
+      // Send username as-is (backend will handle case-insensitive search)
       const response = await axios.post(LOGIN_URL, {
         username: trimmedUsername,
         email: trimmedEmail,
@@ -96,7 +97,7 @@ const LoginScreen = () => {
     } catch (error) {
       showMessage(
         error.response?.data?.message || "Something went wrong",
-        "error"
+        "error",
       );
     } finally {
       setLoading(false);

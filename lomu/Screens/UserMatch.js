@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   FlatList,
+  Modal,
+  Dimensions,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,6 +18,7 @@ import axios from "axios";
 import { BACKEND_URI } from "@env";
 
 const SERVER_URL = `${BACKEND_URI}`;
+const { width, height } = Dimensions.get("window");
 
 const UserMatch = ({ route, navigation }) => {
   const { userId } = route.params;
@@ -23,6 +26,9 @@ const UserMatch = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedTab, setSelectedTab] = useState("photos");
+  const [fullscreenVisible, setFullscreenVisible] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const flatListRef = useRef(null);
 
   useEffect(() => {
     const fetchMatchProfile = async () => {
@@ -45,6 +51,29 @@ const UserMatch = ({ route, navigation }) => {
     fetchMatchProfile();
   }, [userId]);
 
+  const openFullscreen = (index) => {
+    setSelectedPhotoIndex(index);
+    setFullscreenVisible(true);
+  };
+
+  const closeFullscreen = () => {
+    setFullscreenVisible(false);
+    setSelectedPhotoIndex(0);
+  };
+
+  const renderFullscreenItem = ({ item, index }) => {
+    const photoUrl = typeof item === "string" ? item : item.url;
+    return (
+      <View style={styles.fullscreenPage}>
+        <Image
+          source={{ uri: photoUrl }}
+          style={styles.fullscreenImage}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
@@ -61,6 +90,8 @@ const UserMatch = ({ route, navigation }) => {
     );
   }
 
+  const photos = user.photos || [];
+
   return (
     <View style={styles.container}>
       {/* Header with back and username */}
@@ -73,6 +104,7 @@ const UserMatch = ({ route, navigation }) => {
             style={styles.backIcon}
           />
         </TouchableOpacity>
+        <Text style={styles.headerUsername}>@{user.username}</Text>
       </View>
 
       {/* Profile image */}
@@ -114,16 +146,25 @@ const UserMatch = ({ route, navigation }) => {
       {/* Tab Content */}
       {selectedTab === "photos" ? (
         <FlatList
-          data={user.photos || []}
+          data={photos}
           keyExtractor={(item, index) => index.toString()}
-          numColumns={3}
+          numColumns={2}
           contentContainerStyle={styles.photosGrid}
-          renderItem={({ item }) => (
-            <Image
-              source={{ uri: typeof item === "string" ? item : item.url }}
-              style={styles.photoGridItem}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            const photoUrl = typeof item === "string" ? item : item.url;
+            return (
+              <TouchableOpacity
+                onPress={() => openFullscreen(index)}
+                activeOpacity={0.9}
+                style={styles.photoItem}
+              >
+                <Image
+                  source={{ uri: photoUrl }}
+                  style={styles.photoGridItem}
+                />
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <Text style={styles.noPhotosText}>No photos available</Text>
           }
@@ -158,6 +199,49 @@ const UserMatch = ({ route, navigation }) => {
           )}
         </ScrollView>
       )}
+
+      {/* Fullscreen Modal with Horizontal FlatList */}
+      <Modal
+        visible={fullscreenVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeFullscreen}
+      >
+        <View style={styles.fullscreenContainer}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={closeFullscreen}
+          >
+            <Ionicons name="close" size={30} color="#fff" />
+          </TouchableOpacity>
+
+          <FlatList
+            ref={flatListRef}
+            data={photos}
+            keyExtractor={(item, index) => index.toString()}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            initialScrollIndex={selectedPhotoIndex}
+            getItemLayout={(data, index) => ({
+              length: width,
+              offset: width * index,
+              index,
+            })}
+            renderItem={renderFullscreenItem}
+            onScrollToIndexFailed={() => {}}
+          />
+
+          {/* Photo Counter */}
+          {/* {photos.length > 1 && (
+            <View style={styles.counterContainer}>
+              <Text style={styles.counterText}>
+                {selectedPhotoIndex + 1} / {photos.length}
+              </Text>
+            </View>
+          )} */}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -174,10 +258,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#000",
   },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
   backIcon: { marginRight: 10 },
-  username: { fontSize: 22, color: "#fff", fontWeight: "bold" },
-  profileContainer: { alignItems: "center", marginVertical: 10 },
+  headerUsername: {
+    fontSize: 18,
+    color: "#FF0050",
+    fontWeight: "600",
+  },
+  username: {
+    fontSize: 22,
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  profileContainer: {
+    alignItems: "center",
+    marginVertical: 10,
+  },
   image: {
     width: 120,
     height: 120,
@@ -186,7 +287,11 @@ const styles = StyleSheet.create({
     borderColor: "#FF0050",
     marginBottom: 5,
   },
-  tabs: { flexDirection: "row", justifyContent: "center", marginVertical: 10 },
+  tabs: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginVertical: 10,
+  },
   tabButton: {
     paddingVertical: 8,
     paddingHorizontal: 25,
@@ -195,21 +300,91 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FF0050",
   },
-  activeTab: { backgroundColor: "#FF0050" },
-  tabText: { color: "#fff", fontWeight: "bold" },
-  photosGrid: { paddingHorizontal: 10 },
-  photoGridItem: {
-    width: "30%",
-    aspectRatio: 1,
-    margin: "1.66%",
-    borderRadius: 8,
+  activeTab: {
+    backgroundColor: "#FF0050",
   },
-  noPhotosText: { color: "#888", textAlign: "center", marginTop: 20 },
-  detailsContainer: { paddingHorizontal: 20 },
-  bio: { color: "#fff", fontSize: 16, textAlign: "center", marginBottom: 20 },
-  infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-  infoText: { color: "#fff", fontSize: 16, marginLeft: 10 },
-  errorText: { color: "#fff" },
+  tabText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  photosGrid: {
+    paddingHorizontal: 8,
+  },
+  photoItem: {
+    flex: 1,
+    margin: 4,
+  },
+  photoGridItem: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 12,
+  },
+  noPhotosText: {
+    color: "#888",
+    textAlign: "center",
+    marginTop: 20,
+  },
+  detailsContainer: {
+    paddingHorizontal: 20,
+  },
+  bio: {
+    color: "#fff",
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  infoText: {
+    color: "#fff",
+    fontSize: 16,
+    marginLeft: 10,
+  },
+  errorText: {
+    color: "#fff",
+  },
+  // Fullscreen Modal Styles
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  closeButton: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 30,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 25,
+    padding: 8,
+  },
+  fullscreenPage: {
+    width: width,
+    height: height,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+  },
+  fullscreenImage: {
+    width: width,
+    height: height,
+  },
+  counterContainer: {
+    position: "absolute",
+    bottom: 30,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingHorizontal: 15,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  counterText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
 
 export default UserMatch;

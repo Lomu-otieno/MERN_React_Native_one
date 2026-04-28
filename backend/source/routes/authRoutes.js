@@ -28,12 +28,19 @@ router.post("/register", async (req, res) => {
         .json({ message: "Username should be at least 3 characters long" });
     }
 
-    const existingUser = await User.findOne({ username });
+    // Case-insensitive checks
+    const existingUser = await User.findOne({
+      username: { $regex: new RegExp(`^${username}$`, "i") },
+    });
+
     if (existingUser) {
       return res.status(400).json({ message: "Username already exists" });
     }
 
-    const existingEmail = await User.findOne({ email });
+    const existingEmail = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, "i") },
+    });
+
     if (existingEmail) {
       return res.status(400).json({ message: "Email already exists" });
     }
@@ -41,9 +48,10 @@ router.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const profileImage = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
 
+    // Store username and email in lowercase for consistency
     const user = new User({
-      email,
-      username,
+      email: email.toLowerCase(),
+      username: username.toLowerCase(),
       password: hashedPassword,
       profileImage,
     });
@@ -56,8 +64,8 @@ router.post("/register", async (req, res) => {
       token,
       user: {
         id: user._id,
-        username: user.username,
-        email: user.email,
+        username: user.username, // This will be lowercase
+        email: user.email, // This will be lowercase
         profileImage: user.profileImage,
         createdAt: user.createdAt,
       },
@@ -79,8 +87,11 @@ router.post("/login", loginLimiter, async (req, res) => {
         .json({ message: "Username and password are required" });
     }
 
-    // 2. Find user by username
-    const user = await User.findOne({ username });
+    // 2. Find user by username (case-insensitive)
+    const user = await User.findOne({
+      username: { $regex: new RegExp(`^${username}$`, "i") },
+    });
+
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
@@ -95,7 +106,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     const token = jwt.sign(
       { id: user._id, username: user.username },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
 
     // 5. Respond
@@ -113,7 +124,6 @@ router.post("/login", loginLimiter, async (req, res) => {
     console.error("Login Error:", error);
     res.status(500).json({ message: "Server error" });
   }
-  // Example of a protected route:
 });
 
 router.get("/profile", protect, async (req, res) => {
