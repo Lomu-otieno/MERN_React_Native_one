@@ -42,10 +42,6 @@ settings_router.post(
 );
 
 settings_router.post("/update-details", protect, async (req, res) => {
-  console.log("=== UPDATE DETAILS REQUEST ===");
-  console.log("Request body:", req.body);
-  console.log("User ID:", req.user?._id);
-
   const { bio, gender, dateOfBirth, interests, location } = req.body;
 
   try {
@@ -116,7 +112,7 @@ settings_router.post("/update-details", protect, async (req, res) => {
 settings_router.post(
   "/upload-photos",
   protect,
-  upload.array("images", 5),
+  upload.array("images", 12),
   async (req, res) => {
     try {
       const user = await User.findById(req.user._id);
