@@ -42,36 +42,56 @@ settings_router.post(
 );
 
 settings_router.post("/update-details", protect, async (req, res) => {
+  console.log("=== UPDATE DETAILS REQUEST ===");
+  console.log("Request body:", req.body);
+  console.log("User ID:", req.user?._id);
+
   const { bio, gender, dateOfBirth, interests, location } = req.body;
 
   try {
+    // Check if user exists
     const user = await User.findById(req.user._id);
+    console.log("User found:", user ? "Yes" : "No");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Update fields only if they are provided and valid
-    if (bio !== undefined && bio !== null) user.bio = bio;
-    if (gender !== undefined && gender !== null) user.gender = gender;
+    // Update fields one by one with logging
+    if (bio !== undefined && bio !== null) {
+      console.log("Updating bio:", bio);
+      user.bio = bio;
+    }
+
+    if (gender !== undefined && gender !== null) {
+      console.log("Updating gender:", gender);
+      user.gender = gender;
+    }
 
     if (dateOfBirth !== undefined && dateOfBirth !== null) {
+      console.log("Updating dateOfBirth:", dateOfBirth);
       const dob = new Date(dateOfBirth);
       if (!isNaN(dob.getTime())) {
         user.dateOfBirth = dob;
+      } else {
+        console.log("Invalid date format:", dateOfBirth);
       }
     }
 
     if (interests !== undefined && interests !== null) {
-      // Ensure interests is an array
+      console.log("Updating interests:", interests);
       user.interests = Array.isArray(interests) ? interests : [];
     }
 
-    if (location !== undefined && location !== null) user.location = location;
+    if (location !== undefined && location !== null) {
+      console.log("Updating location:", location);
+      user.location = location;
+    }
 
+    console.log("Saving user...");
     await user.save();
+    console.log("User saved successfully");
 
-    // Remove sensitive data
     const userData = user.toObject();
     delete userData.password;
 
@@ -80,8 +100,16 @@ settings_router.post("/update-details", protect, async (req, res) => {
       user: userData,
     });
   } catch (error) {
-    console.error("Update profile error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("=== ERROR IN UPDATE DETAILS ===");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+
+    // Send detailed error in development
+    res.status(500).json({
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 });
 
